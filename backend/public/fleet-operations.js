@@ -1078,67 +1078,80 @@ let editModeActive = false;
 
 // Basculer le mode d'édition
 function toggleEditMode() {
-    editModeActive = !editModeActive;
-    const editBtn = document.getElementById('edit-mode-btn');
+    const editModeBtn = document.getElementById("edit-mode-btn");
     
     if (editModeActive) {
-        // Activer le mode édition
-        editBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4 mr-1"></i> Désactiver modification';
-        editBtn.classList.add('btn-success');
-        editBtn.classList.remove('btn-outline');
-        
-        // Activer l'édition sur les colonnes éditables
-        activateEditableColumns();
-        
-        console.log('Mode édition ACTIVÉ');
-    } else {
-        // Désactiver le mode édition
-        editBtn.innerHTML = '<i data-lucide="edit-3" class="w-4 h-4 mr-1"></i> Activer modification';
-        editBtn.classList.remove('btn-success');
-        editBtn.classList.add('btn-outline');
-        
-        // Désactiver l'édition
+        // Désactiver le mode d'édition
+        editModeActive = false;
+        document.body.classList.remove('edit-mode-active');
+        editModeBtn.classList.remove("btn-success");
+        editModeBtn.classList.add("btn-outline");
+        editModeBtn.innerHTML = '<i data-lucide="edit"></i> Activer modification';
         deactivateEditableColumns();
         
         console.log('Mode édition DÉSACTIVÉ');
+    } else {
+        // Activer le mode d'édition
+        editModeActive = true;
+        document.body.classList.add('edit-mode-active');
+        editModeBtn.classList.remove("btn-outline");
+        editModeBtn.classList.add("btn-success");
+        editModeBtn.innerHTML = '<i data-lucide="check"></i> Modification activée';
+        activateEditableColumns();
+        
+        console.log('Mode édition ACTIVÉ');
     }
     
-    // Recréer les icônes Lucide
+    // Rafraîchir les icônes
     lucide.createIcons();
+    
+    // Rafraîchir le tableau pour appliquer les changements visuels
+    if (table) {
+        table.redraw(true);
+    }
 }
 
 // Activer l'édition sur les colonnes
 function activateEditableColumns() {
     if (!table) return;
     
-    // Liste des colonnes éditables (exclut ID, actions et sélection)
-    const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours'];
+    const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours', 'mileage'];
     
     editableFields.forEach(field => {
         const column = table.getColumn(field);
         if (column) {
-            // Configurer l'éditeur selon le type de champ
+            // Déterminer le type d'éditeur selon le champ
             let editor = "input";
-            if (field === 'hours') {
-                editor = "number";
-            } else if (field === 'fleet' || field === 'affectation') {
+            
+            if (field === 'fleet' || field === 'affectation') {
                 editor = "select";
+            } else if (field === 'hours' || field === 'mileage') {
+                editor = "number";
             }
             
             // Mettre à jour la définition de la colonne
             column.updateDefinition({
                 editor: editor,
-                editorParams: getEditorParams(field)
+                editorParams: getEditorParams(field),
+                cellEdited: onCellEdited
             });
         }
     });
+    
+    // S'assurer que la colonne ID n'est jamais éditable
+    const idColumn = table.getColumn('id');
+    if (idColumn) {
+        idColumn.updateDefinition({
+            editor: false
+        });
+    }
 }
 
 // Désactiver l'édition sur les colonnes
 function deactivateEditableColumns() {
     if (!table) return;
     
-    const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours'];
+    const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours', 'mileage'];
     
     editableFields.forEach(field => {
         const column = table.getColumn(field);
@@ -1168,6 +1181,12 @@ function getEditorParams(field) {
                 max: 99999,
                 step: 1
             };
+        case 'mileage':
+            return {
+                min: 0,
+                max: 999999,
+                step: 1
+            };
         default:
             return {};
     }
@@ -1189,6 +1208,15 @@ function onCellEdited(cell) {
         
         // Sauvegarder dans le localStorage
         saveFleetData();
+        
+        // Ajouter une classe pour l'animation de mise à jour
+        const element = cell.getElement();
+        element.classList.add('tabulator-cell-updated');
+        
+        // Retirer la classe après l'animation
+        setTimeout(() => {
+            element.classList.remove('tabulator-cell-updated');
+        }, 1500);
         
         console.log('Données sauvegardées automatiquement');
     }

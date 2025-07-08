@@ -126,9 +126,37 @@ body {
 }
 
 .tabulator-row {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    border-bottom: none;
     transition: all 0.25s ease;
     height: 46px;
+    position: relative;
+}
+
+.tabulator-row:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.tabulator-row:nth-child(even) {
+    background-color: rgba(249, 250, 251, 0.8);
+}
+
+/* Effet de carte pour chaque ligne */
+.tabulator-row::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 2px;
+    bottom: 2px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.tabulator-row:hover::before {
+    opacity: 1;
 }
 
 .tabulator-row:hover {
@@ -150,6 +178,16 @@ body {
 .tabulator-cell {
     transition: background-color 0.15s ease;
     vertical-align: middle !important;
+    text-align: center !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Exception pour les cellules d'actions ou de sélection */
+.tabulator-cell[tabulator-field="rowSelection"],
+.tabulator-cell[tabulator-field="actions"] {
+    justify-content: center;
 }
 
 .tabulator-cell:hover {
@@ -206,11 +244,18 @@ body {
     overflow-y: auto;
 }
 
-/* Animation pour les boutons avec style premium */
+/* Styles modernisés pour les boutons */
 .btn {
-    transition: all 0.25s ease;
-    font-weight: 500;
+    text-transform: none !important;
     letter-spacing: 0.01em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    font-weight: 500;
+}
+
+.btn::first-letter {
+    text-transform: uppercase;
 }
 
 .btn:hover {
@@ -402,13 +447,17 @@ to { transform: translateY(0); opacity: 1; }
     animation: highlight 1.5s ease;
 }
 
-@keyframes highlight {
+@keyframes highlight-blue {
     0% {
-        background-color: rgba(59, 130, 246, 0.2);
+        background-color: rgba(70, 130, 180, 0.2);
     }
     100% {
         background-color: transparent;
     }
+}
+
+.tabulator-cell-updated {
+    animation: highlight-blue 1.5s ease;
 }
 
 /* Messages de confirmation */
@@ -484,9 +533,9 @@ to { transform: translateY(0); opacity: 1; }
 
 /* Styles pour le mode édition */
 .tabulator-cell.tabulator-editing {
-    background-color: #fef3c7 !important;
-    border: 2px solid #f59e0b !important;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1) !important;
+    background-color: rgba(70, 130, 180, 0.1) !important;
+    border: 2px solid rgba(70, 130, 180, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(70, 130, 180, 0.1) !important;
 }
 
 .tabulator-cell.tabulator-editing input,
@@ -499,6 +548,7 @@ to { transform: translateY(0); opacity: 1; }
     padding: 4px 8px;
     font-size: inherit;
     font-family: inherit;
+    color: #003366;
 }
 
 /* Indicateur visuel pour les cellules éditables */
@@ -508,7 +558,13 @@ to { transform: translateY(0); opacity: 1; }
     position: relative;
 }
 
+/* Supprimer le crayon par défaut */
 .tabulator-cell[tabulator-field]:not([tabulator-field="id"]):not([tabulator-field="rowSelection"]):not([tabulator-field="actions"]):hover::after {
+    content: none;
+}
+
+/* Ajouter le crayon uniquement en mode édition */
+body.edit-mode-active .tabulator-cell[tabulator-field]:not([tabulator-field="id"]):not([tabulator-field="rowSelection"]):not([tabulator-field="actions"]):hover::after {
     content: '✏️';
     position: absolute;
     top: 2px;

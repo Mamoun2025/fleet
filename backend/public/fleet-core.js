@@ -98,17 +98,25 @@ const excelFieldMapping = {
 // Définition des colonnes du tableau basée sur fleet_fields.xlsx
 const tableColumns = [
     {title:"", field:"rowSelection", formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", headerSort:false, width:40},
-    {title:"ID", field:"id", width:80, sorter:"number"},
+    {title:"ID", field:"id", width:80, sorter:"number", editable:false},
     {title:"N° de parc", field:"fleetnumber", width:100},
     {title:"Désignation", field:"designation"},
     {title:"Type", field:"type", width:100},
     {title:"Parc Engins", field:"fleet", width:120},
     {title:"Marque", field:"brand", width:120},
     {title:"Modèle", field:"model", width:120},
-    {title:"N° de série", field:"serialnumber", width:120},
+    {title:"N° de série", field:"serialnumber", width:150},
     {title:"Affectation", field:"affectation", width:120},
-    {title:"Heures d'utilisation", field:"hours", width:120, sorter:"number", hozAlign:"right"},
-    {title:"Kilométrage", field:"mileage", width:120, sorter:"number", hozAlign:"right"},
+    {title:"Heures d'utilisation", field:"hours", width:120, sorter:"number", formatter:function(cell, formatterParams){
+        const value = cell.getValue();
+        if(value === null || value === undefined || value === "") return "";
+        return new Intl.NumberFormat('fr-FR').format(value);
+    }},
+    {title:"Kilométrage", field:"mileage", width:120, sorter:"number", formatter:function(cell, formatterParams){
+        const value = cell.getValue();
+        if(value === null || value === undefined || value === "") return "";
+        return new Intl.NumberFormat('fr-FR').format(value);
+    }},
     {title:"Actions", field:"actions", formatter:function(cell, formatterParams, onRendered){
         return '<div class="flex space-x-1"><i data-lucide="eye" class="w-4 h-4 cursor-pointer"></i><i data-lucide="edit" class="w-4 h-4 cursor-pointer"></i></div>';
     }, width:100, headerSort:false}
@@ -299,20 +307,28 @@ window.updateSyncUI = function() {
 
 // Initialisation du tableau Tabulator
 function initializeTable() {
-    console.log('Initialisation du tableau avec', tableData.length, 'enregistrements');
+    console.log('Initialisation du tableau');
     
     // Configuration du tableau
-    const tableConfig = {
+    table = new Tabulator("#fleet-table", {
         data: tableData,
         columns: tableColumns,
-        layout: "fitDataFill",
-        pagination: true,
+        layout: "fitDataStretch",
+        pagination: "local",
         paginationSize: 25,
         selectable: true,
-        height: "100%",
-        movableColumns: true,
-        responsiveLayout: "hide",
-        headerFilterPlaceholder: "Filtrer...",
+        initialSort: [
+            {column: "id", dir: "asc"}
+        ],
+        cellEdited: function(cell) {
+            // Appeler la fonction de sauvegarde automatique
+            onCellEdited(cell);
+        },
+        // Contrôler l'éditabilité des cellules
+        cellEditable: function(cell) {
+            // Si le mode édition est activé et que ce n'est pas la colonne ID
+            return document.body.classList.contains('edit-mode-active') && cell.getColumn().getField() !== "id";
+        },
         placeholder: "Aucune donnée à afficher. Importez des données via le bouton 'Import Excel'.",
         dataLoaded: function() {
             // Réinitialiser les icônes Lucide après chargement des données
@@ -352,28 +368,24 @@ function initializeTable() {
             // Mettre à jour l'affichage des filtres
             applyFilters();
         }
-    };
-    
-    // Ajouter le tri initial seulement si nous avons des données
-    if (tableData.length > 0) {
-        tableConfig.initialSort = [{column:"id", dir:"asc"}];
-    }
-    
-    // Initialiser le tableau
-    table = new Tabulator("#machines-table", tableConfig);
+    });
     
     // Initialisation du sélecteur de colonnes
     table.on("tableBuilt", function() {
-        initializeColumnSelector();
+        if (typeof initializeColumnSelector === 'function') {
+            initializeColumnSelector();
+        }
         
         // Initialisation des icônes Lucide dans le tableau
-        lucide.createIcons();
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     });
     
     // Ajouter un événement pour gérer la sélection des lignes
     table.on("rowSelectionChanged", function(data, rows){
         // Activer ou désactiver le bouton de suppression en fonction des lignes sélectionnées
-        const deleteButton = document.getElementById('delete-selected-button');
+        const deleteButton = document.getElementById('delete-btn');
         if (deleteButton) {
             if (data.length > 0) {
                 deleteButton.removeAttribute('disabled');
