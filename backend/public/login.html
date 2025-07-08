@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Fleet Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@2.6.0/dist/full.css" rel="stylesheet">
+    <style>
+        .login-container {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4a6cf7 0%, #2b3cf5 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(43, 60, 245, 0.3);
+        }
+        
+        .alert {
+            animation: slideIn 0.3s ease-in-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-control {
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="login-container bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Fleet Management</h1>
+            <p class="text-gray-600 mt-2">Connectez-vous pour gérer votre flotte</p>
+        </div>
+        
+        <!-- Conteneur pour les messages d'alerte dynamiques -->
+        <div id="alert-container"></div>
+        
+        <!-- Onglets Login/Register -->
+        <div class="tabs tabs-boxed mb-6">
+            <a class="tab tab-active" id="login-tab">Connexion</a>
+            <a class="tab" id="register-tab">Inscription</a>
+        </div>
+        
+        <!-- Formulaire de connexion -->
+        <form id="login-form" class="space-y-4">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Email</span>
+                </label>
+                <input type="email" id="login-email" placeholder="votre@email.com" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Mot de passe</span>
+                </label>
+                <input type="password" id="login-password" placeholder="••••••••" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control mt-6">
+                <button type="submit" class="btn btn-primary w-full">Se connecter</button>
+            </div>
+        </form>
+        
+        <!-- Formulaire d'inscription (caché par défaut) -->
+        <form id="register-form" class="space-y-4 hidden">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Nom</span>
+                </label>
+                <input type="text" id="register-name" placeholder="Nom de l'entreprise" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Email</span>
+                </label>
+                <input type="email" id="register-email" placeholder="votre@email.com" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Mot de passe</span>
+                </label>
+                <input type="password" id="register-password" placeholder="••••••••" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Confirmer le mot de passe</span>
+                </label>
+                <input type="password" id="register-confirm-password" placeholder="••••••••" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Nom de votre entreprise</span>
+                </label>
+                <input type="text" id="register-company" placeholder="Nom de l'entreprise" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control mt-6">
+                <button type="submit" class="btn btn-primary w-full">S'inscrire</button>
+            </div>
+        </form>
+        
+        <div class="divider mt-8">OU</div>
+        
+        <!-- Mode démo -->
+        <div class="text-center">
+            <button id="demo-mode" class="btn btn-outline btn-sm">Mode démo (sans compte)</button>
+            <p class="text-xs text-gray-500 mt-2">Accès limité avec données locales uniquement</p>
+        </div>
+    </div>
+
+    <script>
+        // URL de l'API
+        const API_URL = 'http://localhost:3000';
+        
+        // Éléments DOM
+        const loginTab = document.getElementById('login-tab');
+        const registerTab = document.getElementById('register-tab');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const demoMode = document.getElementById('demo-mode');
+        const alertContainer = document.getElementById('alert-container');
+        
+        // Vérifier si l'utilisateur est déjà connecté
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Vérifier si le token est valide
+                verifyToken(token);
+            }
+            
+            // Gestion des onglets
+            loginTab.addEventListener('click', function() {
+                loginTab.classList.add('tab-active');
+                registerTab.classList.remove('tab-active');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+            });
+            
+            registerTab.addEventListener('click', function() {
+                registerTab.classList.add('tab-active');
+                loginTab.classList.remove('tab-active');
+                registerForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            });
+            
+            // Gestion du formulaire de connexion
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                
+                login(email, password);
+            });
+            
+            // Gestion du formulaire d'inscription
+            registerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                register();
+            });
+            
+            // Mode démo
+            demoMode.addEventListener('click', function() {
+                // Activer le mode démo (localStorage uniquement)
+                localStorage.setItem('demoMode', 'true');
+                localStorage.removeItem('token');
+                localStorage.removeItem('currentClientId');
+                
+                showSuccess('Mode démo activé, redirection...');
+                
+                // Rediriger vers la page principale après un court délai
+                setTimeout(() => {
+                    window.location.href = 'fleet.html';
+                }, 1500);
+            });
+        });
+        
+        // Fonction de connexion
+        async function login(email, password) {
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erreur de connexion');
+                }
+                
+                const data = await response.json();
+                
+                // Stocker le token
+                localStorage.setItem('token', data.token);
+                localStorage.removeItem('demoMode');
+                
+                // Vérifier le token pour obtenir les informations du client et de sa flotte
+                const client = await verifyToken(data.token);
+                
+                // Vérifier que le client a accès à une flotte
+                const fleet = await checkClientFleet();
+                
+                if (!fleet && !client.isAdmin) {
+                    throw new Error('Aucune flotte associée à votre compte');
+                }
+                
+                showSuccess('Connexion réussie, redirection...');
+                
+                // Si c'est un administrateur, rediriger vers la page d'administration
+                if (client.isAdmin) {
+                    setTimeout(() => {
+                        window.location.href = 'admin.html';
+                    }, 1500);
+                } else {
+                    // Sinon, rediriger vers la page de gestion de flotte
+                    setTimeout(() => {
+                        window.location.href = 'fleet.html';
+                    }, 1500);
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+        
+        // Fonction d'inscription
+        async function register() {
+            try {
+                const name = document.getElementById('register-name').value;
+                const email = document.getElementById('register-email').value;
+                const password = document.getElementById('register-password').value;
+                const confirmPassword = document.getElementById('register-confirm-password').value;
+                const companyName = document.getElementById('register-company').value;
+                
+                // Vérifier que les mots de passe correspondent
+                if (password !== confirmPassword) {
+                    showError('Les mots de passe ne correspondent pas');
+                    return;
+                }
+                
+                const response = await fetch(`${API_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password, companyName })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erreur d\'inscription');
+                }
+                
+                const data = await response.json();
+                
+                // Stocker le token
+                localStorage.setItem('token', data.token);
+                localStorage.removeItem('demoMode');
+                
+                // Vérifier le token pour obtenir les informations du client et de sa flotte
+                const client = await verifyToken(data.token);
+                
+                // Vérifier que le client a accès à une flotte
+                const fleet = await checkClientFleet();
+                
+                if (!fleet) {
+                    throw new Error('Erreur lors de la création de la flotte');
+                }
+                
+                showSuccess('Inscription réussie, redirection...');
+                
+                // Si c'est un administrateur, rediriger vers la page d'administration
+                if (client.isAdmin) {
+                    setTimeout(() => {
+                        window.location.href = 'admin.html';
+                    }, 1500);
+                } else {
+                    // Sinon, rediriger vers la page de gestion de flotte
+                    setTimeout(() => {
+                        window.location.href = 'fleet.html';
+                    }, 1500);
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+        
+        // Vérifier le token
+        async function verifyToken(token) {
+            try {
+                const response = await fetch(`${API_URL}/api/auth/verify`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                });
+                
+                if (!response.ok) {
+                    // Token invalide, supprimer le token
+                    localStorage.removeItem('token');
+                    throw new Error('Token invalide');
+                }
+                
+                const client = await response.json();
+                
+                // Stocker l'ID et le nom du client
+                localStorage.setItem('currentClientId', client._id);
+                localStorage.setItem('clientName', client.name);
+                
+                // Si le client a une entreprise et une flotte associée
+                if (client.company && client.fleet) {
+                    localStorage.setItem('currentCompanyId', client.company._id);
+                    localStorage.setItem('companyName', client.company.name);
+                    localStorage.setItem('currentFleetId', client.fleet._id);
+                    localStorage.setItem('currentFleetName', client.fleet.name);
+                }
+                
+                // Si le client est admin, stocker cette information
+                if (client.isAdmin) {
+                    localStorage.setItem('isAdmin', 'true');
+                }
+                
+                return client;
+            } catch (error) {
+                console.error('Erreur de vérification du token:', error);
+                return null;
+            }
+        }
+        
+        // Afficher une erreur
+        function showError(message) {
+            // Supprimer les alertes existantes
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = '';
+            
+            // Créer une nouvelle alerte d'erreur
+            const errorAlert = document.createElement('div');
+            errorAlert.className = 'alert alert-error mb-6';
+            errorAlert.innerHTML = `
+                <div class="flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-6 h-6 mx-2 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                    </svg>
+                    <label>${message}</label>
+                </div>
+            `;
+            
+            // Ajouter l'alerte au conteneur
+            alertContainer.appendChild(errorAlert);
+            
+            // Masquer l'erreur après 5 secondes
+            setTimeout(() => {
+                errorAlert.remove();
+            }, 5000);
+        }
+        
+        // Afficher un succès
+        function showSuccess(message) {
+            // Supprimer les alertes existantes
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = '';
+            
+            // Créer une nouvelle alerte de succès
+            const successAlert = document.createElement('div');
+            successAlert.className = 'alert alert-success mb-6';
+            successAlert.innerHTML = `
+                <div class="flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-6 h-6 mx-2 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <label>${message}</label>
+                </div>
+            `;
+            
+            // Ajouter l'alerte au conteneur
+            alertContainer.appendChild(successAlert);
+            
+            // Masquer le succès après 5 secondes
+            setTimeout(() => {
+                successAlert.remove();
+            }, 5000);
+        }
+        // Vérifier si le client a accès à une flotte via son entreprise
+        async function checkClientFleet() {
+            try {
+                // Vérifier si nous avons déjà les informations de flotte dans le localStorage
+                const fleetId = localStorage.getItem('currentFleetId');
+                const fleetName = localStorage.getItem('currentFleetName');
+                
+                if (fleetId && fleetName) {
+                    console.log('Flotte déjà disponible dans localStorage:', fleetName);
+                    return { _id: fleetId, name: fleetName };
+                }
+                
+                // Si nous n'avons pas les informations, vérifier via l'API
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Aucun token d\'authentification');
+                }
+                
+                // Récupérer les informations du client et de sa flotte
+                const client = await verifyToken(token);
+                
+                if (client && client.fleet) {
+                    console.log('Flotte récupérée depuis l\'API:', client.fleet.name);
+                    return client.fleet;
+                }
+                
+                // Si le client n'a pas de flotte (cas rare avec la nouvelle architecture)
+                throw new Error('Aucune flotte associée à ce compte');
+            } catch (error) {
+                console.error('Erreur lors de la vérification de la flotte:', error);
+                
+                // En mode démo ou en cas d'erreur, créer une flotte locale temporaire
+                if (localStorage.getItem('demoMode')) {
+                    const tempFleetId = 'local-' + Date.now();
+                    localStorage.setItem('currentFleetId', tempFleetId);
+                    localStorage.setItem('currentFleetName', 'Ma Flotte (Démo)');
+                    return { _id: tempFleetId, name: 'Ma Flotte (Démo)' };
+                }
+                
+                return null;
+            }
+        }
+    </script>
+</body>
+</html>

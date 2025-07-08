@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Fleet Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/lucide@latest/dist/umd/lucide.css" rel="stylesheet">
+    <link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet">
+    <style>
+        .save-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: fadeInOut 2s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+    </style>
+    
+    <!-- Vérification d'authentification -->
+    <script>
+        // Rediriger vers la page de connexion si non connecté ou non admin principal
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const API_URL = 'http://localhost:3000';
+            
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Vérifier si l'utilisateur est l'administrateur principal
+            fetch(`${API_URL}/api/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'x-auth-token': token
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Token invalide');
+                }
+                return response.json();
+            })
+            .then(client => {
+                // Vérifier si c'est un administrateur (sans restriction d'email)
+                if (!client.isAdmin) {
+                    // Rediriger vers la page principale si ce n'est pas un admin
+                    showUnauthorizedMessage();
+                    setTimeout(() => {
+                        window.location.href = 'fleet.html';
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur de vérification du token:', error);
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+            });
+            
+            // Afficher un message d'accès non autorisé
+            function showUnauthorizedMessage() {
+                document.body.innerHTML = `
+                    <div class="flex items-center justify-center h-screen bg-base-200">
+                        <div class="card w-96 bg-base-100 shadow-xl">
+                            <div class="card-body">
+                                <h2 class="card-title text-error">Accès non autorisé</h2>
+                                <p>Seul l'administrateur principal peut accéder à cette page.</p>
+                                <p class="text-sm">Redirection en cours...</p>
+                                <div class="card-actions justify-end mt-4">
+                                    <a href="fleet.html" class="btn btn-primary">Retour à ma flotte</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</head>
+<body>
+    <!-- Navbar avec informations utilisateur -->
+    <div class="navbar bg-base-100 shadow-sm">
+        <div class="flex-1">
+            <span class="font-semibold text-lg">Fleet</span>
+            <span class="mx-2 text-gray-400">/</span>
+            <span class="font-medium text-primary">Administration</span>
+        </div>
+        <div class="flex-none gap-2">
+            <button onclick="testAPI()" class="btn btn-ghost btn-circle mr-2" title="Débogage">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bug"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>
+            </button>
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+                    <div class="avatar placeholder">
+                        <div class="bg-neutral text-neutral-content rounded-full w-10">
+                            <span id="user-initial">A</span>
+                        </div>
+                    </div>
+                </div>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a id="logout-link">Déconnexion</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenu principal -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Conteneur pour les notifications -->
+        <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md"></div>
+        
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Administration - Gestion des entreprises et utilisateurs</h1>
+            <div>
+                <button id="create-company-btn" class="btn btn-primary">
+                    <i data-lucide="building" class="w-4 h-4 mr-2"></i>
+                    Nouvelle entreprise
+                </button>
+                <button id="create-user-btn" class="btn btn-secondary ml-2">
+                    <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i>
+                    Nouvel utilisateur
+                </button>
+            </div>
+        </div>
+        
+        <!-- Onglets de navigation -->
+        <div class="tabs tabs-boxed mb-4">
+            <a id="companies-tab" class="tab tab-active">Entreprises</a>
+            <a id="users-tab" class="tab">Utilisateurs</a>
+            <a id="fleets-tab" class="tab">Flottes</a>
+            <a id="vehicles-tab" class="tab">Véhicules</a>
+        </div>
+        
+        <!-- Conteneur des tableaux -->
+        <div id="tables-container">
+            <!-- Section Entreprises -->
+            <div id="companies-section" class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Liste des entreprises</h2>
+                    <button id="create-company-btn" class="btn btn-primary btn-sm">
+                        <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                        Nouvelle entreprise
+                    </button>
+                </div>
+                <div id="companies-table" class="w-full"></div>
+            </div>
+            
+            <!-- Section Utilisateurs (masquée par défaut) -->
+            <div id="users-section" class="space-y-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Liste des utilisateurs</h2>
+                    <button id="create-user-btn" class="btn btn-primary btn-sm">
+                        <i data-lucide="user-plus" class="w-4 h-4 mr-2"></i>
+                        Nouvel utilisateur
+                    </button>
+                </div>
+                <div id="users-table" class="w-full"></div>
+            </div>
+            
+            <!-- Section Flottes (masquée par défaut) -->
+            <div id="fleets-section" class="space-y-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Tableau de bord des flottes</h2>
+                    <div class="flex gap-2">
+                        <button id="refresh-fleets-btn" class="btn btn-outline btn-sm">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+                            Actualiser
+                        </button>
+                        <button id="export-fleets-btn" class="btn btn-outline btn-sm">
+                            <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                            Exporter
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Statistiques globales -->
+                <div class="stats shadow w-full">
+                    <div class="stat">
+                        <div class="stat-figure text-primary">
+                            <i data-lucide="building" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Entreprises</div>
+                        <div class="stat-value text-primary" id="stats-companies">0</div>
+                    </div>
+                    
+                    <div class="stat">
+                        <div class="stat-figure text-secondary">
+                            <i data-lucide="car" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Véhicules</div>
+                        <div class="stat-value text-secondary" id="stats-vehicles">0</div>
+                        <div class="stat-value" id="total-vehicles-count">0</div>
+                    </div>
+                    
+                    <div class="stat">
+                        <div class="stat-figure text-accent">
+                            <i data-lucide="users" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Utilisateurs</div>
+                        <div class="stat-value text-accent" id="stats-users">0</div>
+                    </div>
+                </div>
+                
+                <!-- Statistiques détaillées des flottes -->
+                <div class="stats shadow w-full">
+                    <div class="stat">
+                        <div class="stat-figure text-info">
+                            <i data-lucide="truck" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Flottes actives</div>
+                        <div class="stat-value text-info" id="active-fleets-count">0</div>
+                    </div>
+                    
+                    <div class="stat">
+                        <div class="stat-figure text-success">
+                            <i data-lucide="database" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Total flottes</div>
+                        <div class="stat-value text-success" id="total-fleets-count">0</div>
+                    </div>
+                    
+                    <div class="stat">
+                        <div class="stat-figure text-warning">
+                            <i data-lucide="refresh-cw" class="w-8 h-8"></i>
+                        </div>
+                        <div class="stat-title">Flottes synchronisées</div>
+                        <div class="stat-value text-warning" id="synced-fleets-count">0</div>
+                        <div class="stat-desc">Mise à jour: <span id="last-update-time">--:--:--</span></div>
+                    </div>
+                </div>
+                
+                <!-- Tableau des flottes -->
+                <div id="fleets-table" class="w-full"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de création d'entreprise -->
+    <dialog id="create-company-modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">Créer une nouvelle entreprise</h3>
+            <form id="create-company-form">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Nom de l'entreprise</span>
+                    </label>
+                    <input type="text" id="company-name" class="input input-bordered" required />
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Description</span>
+                    </label>
+                    <textarea id="company-description" class="textarea textarea-bordered" rows="3"></textarea>
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Adresse</span>
+                    </label>
+                    <input type="text" id="company-address" class="input input-bordered" />
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Téléphone</span>
+                    </label>
+                    <input type="text" id="company-phone" class="input input-bordered" />
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('create-company-modal').close()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+    
+    <!-- Modal de création d'utilisateur -->
+    <dialog id="create-user-modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">Créer un nouvel utilisateur</h3>
+            <form id="create-user-form">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Nom</span>
+                    </label>
+                    <input type="text" id="user-name" class="input input-bordered" required />
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Email</span>
+                    </label>
+                    <input type="email" id="user-email" class="input input-bordered" required />
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Mot de passe</span>
+                    </label>
+                    <input type="password" id="user-password" class="input input-bordered" required />
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Entreprise</span>
+                    </label>
+                    <select id="user-company" class="select select-bordered w-full" required>
+                        <option value="" disabled selected>Sélectionner une entreprise</option>
+                    </select>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('create-user-modal').close()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+    
+    <!-- Toast container pour les notifications -->
+    <div id="toast-container" class="toast toast-top toast-end"></div>
+    
+    <!-- Conteneur de débogage -->
+    <div id="debug-container" class="fixed bottom-0 left-0 right-0 bg-base-300 p-4 overflow-auto" style="max-height: 300px; display: none;">
+        <h3 class="text-lg font-bold mb-2">Débogage</h3>
+        <div id="debug-output" class="whitespace-pre-wrap font-mono text-xs"></div>
+        <div class="flex justify-end mt-2">
+            <button class="btn btn-sm btn-primary mr-2" onclick="testAPI()">Tester API</button>
+            <button class="btn btn-sm btn-error" onclick="document.getElementById('debug-container').style.display = 'none'">Fermer</button>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.0/build/global/luxon.min.js"></script>
+    <script src="js/admin-utils.js"></script>
+    
+    <script>
+        // Variables globales
+        const API_URL = 'http://localhost:3000';
+        let companiesTable;
+        let usersTable;
+        let fleetsTable;
+        let companies = [];
+        let users = [];
+        let fleets = [];
+        
+        // Attendre que tous les scripts soient chargés
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM chargé, initialisation de l\'interface...');
+            
+            // Initialiser l'interface utilisateur
+            initUserInterface();
+            
+            // S'assurer que les tableaux sont bien initialisés avant de charger les données
+            // Utiliser requestAnimationFrame pour s'assurer que le DOM est complètement rendu
+            requestAnimationFrame(() => {
+                console.log('Initialisation des tableaux...');
+                // Initialiser les tableaux
+                initCompaniesTable();
+                initUsersTable();
+                
+                // Charger les données avec un léger délai pour s'assurer que les tableaux sont prêts
+                setTimeout(() => {
+                    console.log('Chargement des entreprises...');
+                    loadCompanies();
+                    
+                    // Attendre que les entreprises soient chargées avant de charger les utilisateurs
+                    setTimeout(() => {
+                        console.log('Chargement des utilisateurs...');
+                        loadUsers();
+                        
+                        // Initialiser également les flottes
+                        console.log('Chargement des flottes...');
+                        initFleetsTable();
+                        loadFleets();
+                    }, 500);
+                }, 300);
+            });
+            
+            // Fonction pour afficher un onglet spécifique
+            function showTab(tabName) {
+                console.log(`Affichage de l'onglet: ${tabName}`);
+                
+                // Masquer tous les onglets
+                document.getElementById('companies-section').classList.add('hidden');
+                document.getElementById('users-section').classList.add('hidden');
+                document.getElementById('fleets-section').classList.add('hidden');
+                
+                // Désactiver tous les boutons d'onglets
+                document.getElementById('companies-tab').classList.remove('tab-active');
+                document.getElementById('users-tab').classList.remove('tab-active');
+                document.getElementById('fleets-tab').classList.remove('tab-active');
+                
+                // Afficher l'onglet sélectionné
+                document.getElementById(`${tabName}-section`).classList.remove('hidden');
+                document.getElementById(`${tabName}-tab`).classList.add('tab-active');
+                
+                // Actions spécifiques selon l'onglet
+                if (tabName === 'companies') {
+                    // Rafraîchir le tableau des entreprises si nécessaire
+                    if (companiesTable) {
+                        companiesTable.redraw(true);
+                    }
+                } else if (tabName === 'users') {
+                    // Rafraîchir le tableau des utilisateurs et leurs statistiques
+                    if (usersTable) {
+                        usersTable.redraw(true);
+                    }
+                    updateUserStats();
+                } else if (tabName === 'fleets') {
+                    // Initialiser le tableau des flottes s'il n'existe pas encore
+                    if (!fleetsTable) {
+                        initFleetsTable();
+                    }
+                    
+                    // Rafraîchir le tableau des flottes et charger les données si nécessaire
+                    if (fleetsTable) {
+                        if (fleets.length === 0) {
+                            loadFleets();
+                        } else {
+                            fleetsTable.redraw(true);
+                            updateFleetStats();
+                        }
+                    }
+                }
+                
+                // Mettre à jour les icônes Lucide après le changement d'onglet
+                setTimeout(() => {
+                    lucide.createIcons();
+                }, 100);
+            }
+            
+            // Configurer les onglets
+            document.getElementById('companies-tab').addEventListener('click', function() {
+                showTab('companies');
+            });
+            
+            document.getElementById('users-tab').addEventListener('click', function() {
+                showTab('users');
+            });
+            
+            document.getElementById('fleets-tab').addEventListener('click', function() {
+                showTab('fleets');
+            });
+            
+            // Configurer le bouton de rafraîchissement des flottes
+            const refreshFleetsBtn = document.getElementById('refresh-fleets-btn');
+            if (refreshFleetsBtn) {
+                refreshFleetsBtn.addEventListener('click', function() {
+                    loadFleets();
+                });
+            }
+            
+            // Configurer les boutons de création
+            document.getElementById('create-company-btn').addEventListener('click', function() {
+                document.getElementById('create-company-modal').showModal();
+            });
+            
+            document.getElementById('create-user-btn').addEventListener('click', function() {
+                // Charger la liste des entreprises dans le select
+                populateCompanySelect();
+                document.getElementById('create-user-modal').showModal();
+            });
+            
+            // Configurer les formulaires
+            document.getElementById('create-company-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                createCompany();
+            });
+            
+            document.getElementById('create-user-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                createUser();
+            });
+        });
+        
+        // Initialiser l'interface utilisateur
+        function initUserInterface() {
+            console.log('Initialisation de l\'interface utilisateur...');
+            
+            // Vérifier l'authentification
+            checkAuthentication();
+            
+            // Initialiser les icônes Lucide
+            lucide.createIcons();
+            
+            // Mettre à jour le nom d'utilisateur
+            updateUserName();
+            
+            // Utiliser requestAnimationFrame pour s'assurer que le DOM est rendu
+            requestAnimationFrame(() => {
+                console.log('Initialisation des tableaux...');
+                
+                // Initialiser les tableaux
+                initCompaniesTable();
+                initUsersTable();
+                
+                // Charger les données avec un léger délai pour s'assurer que les tableaux sont prêts
+                setTimeout(() => {
+                    // Charger les entreprises d'abord, puis les utilisateurs
+                    loadCompanies()
+                        .then(() => {
+                            return loadUsers();
+                        })
+                        .catch(error => {
+                            console.error('Erreur lors du chargement des données:', error);
+                            showError('Erreur lors du chargement des données');
+                        });
+                }, 100);
+            });
+            
+            console.log('Interface utilisateur initialisée avec succès');
+        }
+        
+        // Vérifier l'authentification
+        function checkAuthentication() {
+            const token = localStorage.getItem('token');
+            console.log('Vérification du token JWT:', token ? 'Présent' : 'Absent');
+            
+            if (!token) {
+                console.error('Aucun token JWT trouvé, redirection vers la page de connexion');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Vérifier si le token est valide et si l'utilisateur est admin
+            fetch(`${API_URL}/api/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'x-auth-token': token
+                }
+            })
+            .then(response => {
+                console.log('Réponse de vérification du token:', response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error('Token invalide');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Données utilisateur:', data);
+                
+                if (!data.isAdmin) {
+                    console.error('Utilisateur non administrateur, redirection vers la page de connexion');
+                    showError('Accès refusé. Droits administrateur requis.');
+                    setTimeout(() => {
+                        localStorage.removeItem('token');
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    console.log('Utilisateur authentifié en tant qu\'administrateur:', data.email);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la vérification du token:', error);
+                showError('Session expirée ou invalide. Veuillez vous reconnecter.');
+                setTimeout(() => {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                }, 2000);
+            });
+        }
+        
+        // Mettre à jour le nom d'utilisateur
+        function updateUserName() {
+            const token = localStorage.getItem('token');
+            const userInitial = document.getElementById('user-initial');
+            
+            if (token) {
+                // Récupérer les informations du client depuis l'API
+                fetch(`${API_URL}/api/auth/verify`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Token invalide');
+                    }
+                    return response.json();
+                })
+                .then(client => {
+                    // Afficher l'initiale du nom du client
+                    if (client && client.name) {
+                        userInitial.textContent = client.name.charAt(0).toUpperCase();
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération des informations du client:', error);
+                    userInitial.textContent = 'A';
+                });
+            } else {
+                userInitial.textContent = 'A';
+            }
+        }
+        
+        // Initialiser le tableau des entreprises
+        function initCompaniesTable() {
+            // Si le tableau existe déjà, le détruire pour éviter les doublons
+            if (companiesTable) {
+                companiesTable.destroy();
+            }
+            
+            // Définir le formateur de date
+            var dateFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                if(!value){
+                    return "<span class='text-gray-400'>Jamais</span>";
+                }
+                
+                try {
+                    var date = new Date(value);
+                    // Vérifier si la date est valide
+                    if (isNaN(date.getTime())) {
+                        return "<span class='text-gray-400'>Date invalide</span>";
+                    }
+                    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                } catch (e) {
+                    console.error('Erreur de formatage de date:', e, value);
+                    return "<span class='text-gray-400'>Format invalide</span>";
+                }
+            };
+            
+            // Initialiser le tableau
+            companiesTable = new Tabulator("#companies-table", {
+                layout: "fitColumns",
+                pagination: "local",
+                paginationSize: 10,
+                placeholder: "Aucune entreprise trouvée",
+                columns: [
+                    { title: "Nom", field: "name", sorter: "string", width: 200 },
+                    { title: "Description", field: "description", sorter: "string" },
+                    { title: "Adresse", field: "address", sorter: "string" },
+                    { title: "Téléphone", field: "phone", sorter: "string", width: 150 },
+                    { title: "Date de création", field: "created_at", sorter: "date", formatter: dateFormatter, width: 150 },
+                    {
+                        title: "Actions",
+                        formatter: function(cell, formatterParams, onRendered) {
+                            return `
+                                <div class="flex space-x-2">
+                                    <button class="btn btn-xs btn-outline btn-info view-fleet-btn">
+                                        <i data-lucide="database" class="w-3 h-3"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline btn-warning edit-company-btn">
+                                        <i data-lucide="edit" class="w-3 h-3"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline btn-error delete-company-btn">
+                                        <i data-lucide="trash" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            `;
+                        },
+                        width: 120,
+                        hozAlign: "center",
+                        cellClick: function(e, cell) {
+                            const companyId = cell.getRow().getData()._id;
+                            const target = e.target.closest('button');
+                            
+                            if (target && target.classList.contains('view-fleet-btn')) {
+                                viewFleet(companyId);
+                            } else if (target && target.classList.contains('edit-company-btn')) {
+                                editCompany(companyId);
+                            } else if (target && target.classList.contains('delete-company-btn')) {
+                                deleteCompany(companyId);
+                            }
+                        }
+                    }
+                ],
+                renderComplete: function() {
+                    // Initialiser les icônes Lucide après le rendu du tableau
+                    lucide.createIcons();
+                    console.log("Tableau des entreprises rendu avec succès");
+                }
+            });
+            
+            console.log("Tableau des entreprises initialisé");
+        }
+        
+        // Initialiser le tableau des utilisateurs
+        function initUsersTable() {
+            // Si le tableau existe déjà, le détruire pour éviter les doublons
+            if (usersTable) {
+                usersTable.destroy();
+            }
+            
+            // Définir le formateur de date
+            var dateFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                if(!value){
+                    return "<span class='text-gray-400'>Jamais</span>";
+                }
+                
+                try {
+                    var date = new Date(value);
+                    // Vérifier si la date est valide
+                    if (isNaN(date.getTime())) {
+                        return "<span class='text-gray-400'>Date invalide</span>";
+                    }
+                    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                } catch (e) {
+                    console.error('Erreur de formatage de date:', e, value);
+                    return "<span class='text-gray-400'>Format invalide</span>";
+                }
+            };
+            
+            usersTable = new Tabulator("#users-table", {
+                layout: "fitColumns",
+                pagination: "local",
+                paginationSize: 10,
+                placeholder: "Aucun utilisateur trouvé",
+                columns: [
+                    { title: "Nom", field: "name", sorter: "string", width: 200 },
+                    { title: "Email", field: "email", sorter: "string" },
+                    { title: "Entreprise", field: "companyName", sorter: "string" },
+                    { title: "Admin", field: "isAdmin", sorter: "boolean", formatter: "tickCross", width: 100 },
+                    { title: "Date de création", field: "created_at", sorter: "date", formatter: dateFormatter, width: 150 },
+                    {
+                        title: "Actions",
+                        formatter: function(cell, formatterParams, onRendered) {
+                            return `
+                                <div class="flex space-x-2">
+                                    <button class="btn btn-xs btn-outline btn-warning edit-user-btn">
+                                        <i data-lucide="edit" class="w-3 h-3"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline btn-error delete-user-btn">
+                                        <i data-lucide="trash" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            `;
+                        },
+                        width: 120,
+                        hozAlign: "center",
+                        cellClick: function(e, cell) {
+                            const userId = cell.getRow().getData()._id;
+                            const target = e.target.closest('button');
+                            
+                            if (target && target.classList.contains('edit-user-btn')) {
+                                editUser(userId);
+                            } else if (target && target.classList.contains('delete-user-btn')) {
+                                deleteUser(userId);
+                            }
+                        }
+                    }
+                ],
+                renderComplete: function() {
+                    // Initialiser les icônes Lucide après le rendu du tableau
+                    lucide.createIcons();
+                    console.log("Tableau des utilisateurs rendu avec succès");
+                }
+            });
+            
+            console.log("Tableau des utilisateurs initialisé");
+        }
+        
+        // Charger les entreprises
+        function loadCompanies() {
+            const token = localStorage.getItem('token');
+            console.log('Chargement des entreprises avec token:', token);
+            
+            return new Promise((resolve, reject) => {
+                fetch(`${API_URL}/api/companies`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                })
+                .then(response => {
+                    console.log('Réponse API entreprises:', response.status, response.statusText);
+                    if (!response.ok) {
+                        throw new Error('Erreur lors du chargement des entreprises');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Entreprises reçues:', data.length);
+                    companies = data;
+                    
+                    // Vérifier si le tableau est initialisé
+                    if (companiesTable) {
+                        try {
+                            companiesTable.setData(data);
+                            console.log('Données chargées dans le tableau des entreprises');
+                        } catch (e) {
+                            console.error('Erreur lors du chargement des données dans le tableau:', e);
+                            // Réinitialiser le tableau en cas d'erreur
+                            initCompaniesTable();
+                            companiesTable.setData(data);
+                        }
+                    } else {
+                        console.error('Le tableau des entreprises n\'est pas initialisé');
+                        initCompaniesTable(); // Réinitialiser le tableau
+                        companiesTable.setData(data);
+                    }
+                    
+                    // Réinitialiser les icônes Lucide
+                    setTimeout(() => {
+                        lucide.createIcons();
+                    }, 100);
+                    
+                    // Afficher un message de succès
+                    showInfo(`${data.length} entreprises chargées`);
+                    updateUserStats();
+                    resolve(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement des entreprises:', error);
+                    showError('Erreur lors du chargement des entreprises');
+                    reject(error);
+                });
+            });
+        }
+        
+        // Charger les utilisateurs
+        function loadUsers() {
+            const token = localStorage.getItem('token');
+            console.log('Chargement des utilisateurs avec token:', token);
+            
+            return new Promise((resolve, reject) => {
+                fetch(`${API_URL}/api/auth/users`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                })
+                .then(response => {
+                    console.log('Réponse API utilisateurs:', response.status, response.statusText);
+                    if (!response.ok) {
+                        throw new Error('Erreur lors du chargement des utilisateurs');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Utilisateurs reçus:', data.length);
+                    
+                    // Ajouter le nom de l'entreprise à chaque utilisateur
+                    const usersWithCompanyNames = data.map(user => {
+                        const company = companies.find(c => c._id === user.companyId);
+                        return {
+                            ...user,
+                            companyName: company ? company.name : 'Aucune'
+                        };
+                    });
+                    
+                    console.log('Utilisateurs avec noms d\'entreprise:', usersWithCompanyNames.length);
+                    
+                    // Vérifier si le tableau est initialisé
+                    if (usersTable) {
+                        try {
+                            usersTable.setData(usersWithCompanyNames);
+                            console.log('Données chargées dans le tableau des utilisateurs');
+                        } catch (e) {
+                            console.error('Erreur lors du chargement des données dans le tableau des utilisateurs:', e);
+                            // Réinitialiser le tableau en cas d'erreur
+                            initUsersTable();
+                            usersTable.setData(usersWithCompanyNames);
+                        }
+                    } else {
+                        console.error('Le tableau des utilisateurs n\'est pas initialisé');
+                        initUsersTable(); // Réinitialiser le tableau
+                        usersTable.setData(usersWithCompanyNames);
+                    }
+                    
+                    // Réinitialiser les icônes Lucide
+                    setTimeout(() => {
+                        lucide.createIcons();
+                    }, 100);
+                    
+                    // Afficher un message de succès
+                    showInfo(`${data.length} utilisateurs chargés`);
+                    
+                    // Mettre à jour les statistiques des utilisateurs
+                    updateUserStats();
+                    
+                    resolve(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement des utilisateurs:', error);
+                    showError('Erreur lors du chargement des utilisateurs');
+                    reject(error);
+                });
+            });
+        }
+        
+        // Afficher une information
+        function showInfo(message) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-info mb-4';
+            notification.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>${message}</span>
+            `;
+            
+            const toastContainer = document.getElementById('toast-container');
+            toastContainer.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 7000);
+        }
+        
+        // Afficher un onglet spécifique
+        function showTab(tabName) {
+            // Masquer toutes les sections
+            document.getElementById('companies-section').classList.add('hidden');
+            document.getElementById('users-section').classList.add('hidden');
+            document.getElementById('fleets-section').classList.add('hidden');
+            
+            // Désactiver tous les onglets
+            document.getElementById('companies-tab').classList.remove('tab-active');
+            document.getElementById('users-tab').classList.remove('tab-active');
+            document.getElementById('fleets-tab').classList.remove('tab-active');
+            
+            // Activer l'onglet et la section spécifiés
+            switch(tabName) {
+                case 'companies':
+                    document.getElementById('companies-section').classList.remove('hidden');
+                    document.getElementById('companies-tab').classList.add('tab-active');
+                    if (companiesTable) {
+                        loadCompanies();
+                    } else {
+                        initCompaniesTable();
+                        loadCompanies();
+                    }
+                    break;
+                case 'users':
+                    document.getElementById('users-section').classList.remove('hidden');
+                    document.getElementById('users-tab').classList.add('tab-active');
+                    if (usersTable) {
+                        loadUsers();
+                    } else {
+                        initUsersTable();
+                        loadUsers();
+                    }
+                    break;
+                case 'fleets':
+                    document.getElementById('fleets-section').classList.remove('hidden');
+                    document.getElementById('fleets-tab').classList.add('tab-active');
+                    if (fleetsTable) {
+                        loadFleets();
+                    } else {
+                        initFleetsTable();
+                        loadFleets();
+                    }
+                    break;
+                default:
+                    // Par défaut, afficher l'onglet entreprises
+                    document.getElementById('companies-section').classList.remove('hidden');
+                    document.getElementById('companies-tab').classList.add('tab-active');
+                    if (companiesTable) {
+                        loadCompanies();
+                    } else {
+                        initCompaniesTable();
+                        loadCompanies();
+                    }
+            }
+            
+            // Réinitialiser les icônes Lucide
+            setTimeout(() => {
+                lucide.createIcons();
+            }, 100);
+        }
+        
+        // Remplir le select des entreprises
+        function populateCompanySelect() {
+            const select = document.getElementById('user-company');
+            
+            // Vider le select
+            select.innerHTML = '<option value="" disabled selected>Sélectionner une entreprise</option>';
+            
+            // Ajouter les entreprises
+            companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company._id;
+                option.textContent = company.name;
+                select.appendChild(option);
+            });
+        }
+        
+        // Créer une entreprise
+        function createCompany() {
+            const token = localStorage.getItem('token');
+            const name = document.getElementById('company-name').value;
+            const description = document.getElementById('company-description').value;
+            const address = document.getElementById('company-address').value;
+            const phone = document.getElementById('company-phone').value;
+            
+            // Vérifier que le nom est bien renseigné
+            if (!name.trim()) {
+                showError('Le nom de l\'entreprise est obligatoire');
+                return;
+            }
+            
+            // Afficher un indicateur de chargement
+            showInfo('Création de l\'entreprise en cours...');
+            
+            fetch(`${API_URL}/api/companies`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({
+                    name,
+                    description,
+                    address,
+                    phone
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Erreur lors de la création de l\'entreprise');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Fermer le modal
+                document.getElementById('create-company-modal').close();
+                
+                // Réinitialiser le formulaire
+                document.getElementById('create-company-form').reset();
+                
+                // Recharger les entreprises
+                loadCompanies();
+                
+                // Afficher un message de succès
+                showSuccess('Entreprise créée avec succès');
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showError(error.message || 'Erreur lors de la création de l\'entreprise');
+            });
+        }
+        
+        // Créer un utilisateur
+        function createUser() {
+            const token = localStorage.getItem('token');
+            const name = document.getElementById('user-name').value;
+            const email = document.getElementById('user-email').value;
+            const password = document.getElementById('user-password').value;
+            const companyId = document.getElementById('user-company').value;
+            
+            fetch(`${API_URL}/api/auth/create-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({
+                    name,
+                    email,
+                    password,
+                    companyId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la création de l\'utilisateur');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Fermer le modal
+                document.getElementById('create-user-modal').close();
+                
+                // Réinitialiser le formulaire
+                document.getElementById('create-user-form').reset();
+                
+                // Recharger les utilisateurs
+                loadUsers();
+                
+                // Afficher un message de succès
+                showSuccess('Utilisateur créé avec succès');
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showError('Erreur lors de la création de l\'utilisateur');
+            });
+        }
+        
+        // Fonction de test API pour débogage
+        function testAPI() {
+            const token = localStorage.getItem('token');
+            const debugContainer = document.getElementById('debug-container');
+            
+            // Créer le conteneur de débogage s'il n'existe pas
+            if (!debugContainer) {
+                const container = document.createElement('div');
+                container.id = 'debug-container';
+                container.className = 'fixed bottom-0 right-0 w-96 h-96 bg-base-300 p-4 overflow-auto z-50 shadow-lg rounded-tl-lg';
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold">Débogage API</h3>
+                        <button id="close-debug" class="btn btn-sm btn-circle">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div id="debug-content" class="space-y-2"></div>
+                    <div class="mt-4 space-x-2">
+                        <button id="reload-companies" class="btn btn-sm btn-primary">Recharger Entreprises</button>
+                        <button id="reload-users" class="btn btn-sm btn-secondary">Recharger Utilisateurs</button>
+                    </div>
+                `;
+                document.body.appendChild(container);
+                
+                // Initialiser les icônes
+                lucide.createIcons();
+                
+                // Ajouter les événements
+                document.getElementById('close-debug').addEventListener('click', function() {
+                    document.getElementById('debug-container').remove();
+                });
+                
+                document.getElementById('reload-companies').addEventListener('click', function() {
+                    // Forcer la réinitialisation du tableau des entreprises
+                    if (companiesTable) {
+                        companiesTable.destroy();
+                    }
+                    initCompaniesTable();
+                    loadCompanies();
+                });
+                
+                document.getElementById('reload-users').addEventListener('click', function() {
+                    // Forcer la réinitialisation du tableau des utilisateurs
+                    if (usersTable) {
+                        usersTable.destroy();
+                    }
+                    initUsersTable();
+                    loadUsers();
+                });
+            }
+            
+            const debugContent = document.getElementById('debug-content');
+            debugContent.innerHTML = '<div class="alert alert-info">Test API en cours...</div>';
+            
+            // Tester l'authentification
+            fetch(`${API_URL}/api/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'x-auth-token': token
+                }
+            })
+            .then(response => {
+                const status = response.ok ? 'success' : 'error';
+                debugContent.innerHTML += `<div class="alert alert-${status}">Authentification: ${response.status} ${response.statusText}</div>`;
+                return response.json();
+            })
+            .then(data => {
+                debugContent.innerHTML += `<div class="alert alert-info">Utilisateur: ${data.name} (Admin: ${data.isAdmin})</div>`;
+                
+                // Tester l'API des entreprises
+                return fetch(`${API_URL}/api/companies`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                });
+            })
+            .then(response => {
+                const status = response.ok ? 'success' : 'error';
+                debugContent.innerHTML += `<div class="alert alert-${status}">API Entreprises: ${response.status} ${response.statusText}</div>`;
+                return response.json();
+            })
+            .then(data => {
+                debugContent.innerHTML += `<div class="alert alert-info">Entreprises reçues: ${data.length}</div>`;
+                
+                // Vérifier l'état du tableau des entreprises
+                if (companiesTable) {
+                    const tableData = companiesTable.getData();
+                    debugContent.innerHTML += `<div class="alert alert-${tableData.length > 0 ? 'success' : 'warning'}">Tableau entreprises: ${tableData.length} lignes</div>`;
+                } else {
+                    debugContent.innerHTML += `<div class="alert alert-error">Tableau entreprises: Non initialisé</div>`;
+                }
+                
+                // Tester l'API des utilisateurs
+                return fetch(`${API_URL}/api/auth/users`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                });
+            })
+            .then(response => {
+                const status = response.ok ? 'success' : 'error';
+                debugContent.innerHTML += `<div class="alert alert-${status}">API Utilisateurs: ${response.status} ${response.statusText}</div>`;
+                return response.json();
+            })
+            .then(data => {
+                debugContent.innerHTML += `<div class="alert alert-info">Utilisateurs reçus: ${data.length}</div>`;
+                
+                // Vérifier l'état du tableau des utilisateurs
+                if (usersTable) {
+                    const tableData = usersTable.getData();
+                    debugContent.innerHTML += `<div class="alert alert-${tableData.length > 0 ? 'success' : 'warning'}">Tableau utilisateurs: ${tableData.length} lignes</div>`;
+                } else {
+                    debugContent.innerHTML += `<div class="alert alert-error">Tableau utilisateurs: Non initialisé</div>`;
+                }
+                
+                // Ajouter un bouton pour forcer l'affichage des données
+                debugContent.innerHTML += `
+                    <div class="alert alert-info mt-4">
+                        <p>État des tableaux:</p>
+                        <ul class="list-disc pl-4">
+                            <li>Tableau entreprises: ${companiesTable ? 'Initialisé' : 'Non initialisé'}</li>
+                            <li>Tableau utilisateurs: ${usersTable ? 'Initialisé' : 'Non initialisé'}</li>
+                            <li>Conteneur entreprises: ${document.getElementById('companies-table') ? 'Présent' : 'Absent'}</li>
+                            <li>Conteneur utilisateurs: ${document.getElementById('users-table') ? 'Présent' : 'Absent'}</li>
+                        </ul>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                debugContent.innerHTML += `<div class="alert alert-error">Erreur: ${error.message}</div>`;
+            });
+        }
+        
+        // Initialiser le tableau des flottes
+        function initFleetsTable() {
+            // Si le tableau existe déjà, le détruire pour éviter les doublons
+            if (fleetsTable) {
+                fleetsTable.destroy();
+            }
+            
+            // Définir le formateur de date
+            var dateFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                if(!value){
+                    return "<span class='text-gray-400'>Jamais</span>";
+                }
+                
+                try {
+                    var date = new Date(value);
+                    // Vérifier si la date est valide
+                    if (isNaN(date.getTime())) {
+                        return "<span class='text-gray-400'>Date invalide</span>";
+                    }
+                    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                } catch (e) {
+                    console.error('Erreur de formatage de date:', e, value);
+                    return "<span class='text-gray-400'>Format invalide</span>";
+                }
+            };
+            
+            // Formateur pour le statut de la flotte
+            var statusFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                let color = "";
+                let icon = "";
+                
+                switch(value) {
+                    case "active":
+                        color = "bg-success text-success-content";
+                        icon = "check-circle";
+                        break;
+                    case "inactive":
+                        color = "bg-warning text-warning-content";
+                        icon = "alert-circle";
+                        break;
+                    case "pending":
+                        color = "bg-info text-info-content";
+                        icon = "clock";
+                        break;
+                    default:
+                        color = "bg-neutral text-neutral-content";
+                        icon = "help-circle";
+                }
+                
+                return `<div class="badge ${color} gap-1"><i data-lucide="${icon}" class="w-3 h-3"></i> ${value.charAt(0).toUpperCase() + value.slice(1)}</div>`;
+            };
+            
+            // Formateur pour le nombre de véhicules
+            var vehiclesFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                return `<div class="badge badge-neutral gap-1"><i data-lucide="car" class="w-3 h-3"></i> ${value}</div>`;
+            };
+            
+            // Formateur pour les véhicules actifs
+            var activeVehiclesFormatter = function(cell, formatterParams){
+                var value = cell.getValue() || 0;
+                return `<div class="badge badge-success gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> ${value}</div>`;
+            };
+            
+            // Formateur pour les véhicules en maintenance
+            var maintenanceVehiclesFormatter = function(cell, formatterParams){
+                var value = cell.getValue() || 0;
+                return `<div class="badge badge-warning gap-1"><i data-lucide="tool" class="w-3 h-3"></i> ${value}</div>`;
+            };
+            
+            // Formateur pour les véhicules inactifs
+            var inactiveVehiclesFormatter = function(cell, formatterParams){
+                var value = cell.getValue() || 0;
+                return `<div class="badge badge-error gap-1"><i data-lucide="x-circle" class="w-3 h-3"></i> ${value}</div>`;
+            };
+            
+            // Initialiser le tableau
+            fleetsTable = new Tabulator("#fleets-table", {
+                layout: "fitColumns",
+                pagination: "local",
+                paginationSize: 10,
+                placeholder: "Aucune flotte trouvée",
+                columns: [
+                    { title: "Entreprise", field: "companyName", sorter: "string", width: 200 },
+                    { title: "Statut", field: "status", sorter: "string", width: 120 },
+                    { title: "Véhicules", field: "vehicleCount", sorter: "number", width: 120 },
+                    { title: "Dernière synchronisation", field: "lastSync", sorter: "date", formatter: dateFormatter, width: 180 },
+                    { title: "Actions", formatter: actionsFormatter, width: 150, hozAlign: "center" }
+                ],
+                renderComplete: function() {
+                    // Réinitialiser les icônes Lucide après le rendu du tableau
+                    lucide.createIcons();
+                    console.log("Tableau des flottes rendu avec succès");
+                }
+            });
+            
+            console.log("Tableau des flottes initialisé");
+        }
+        
+        // Charger les flottes
+        function loadFleets() {
+            const token = localStorage.getItem('token');
+            console.log('Chargement des flottes avec token:', token);
+            
+            // S'assurer que le tableau est initialisé
+            if (!fleetsTable) {
+                initFleetsTable();
+            }
+            
+            // Afficher un message de chargement
+            showInfo('Chargement des flottes en cours...');
+            
+            // Variables globales pour stocker les statistiques
+            window.totalVehicles = 0;
+            window.activeVehicles = 0;
+            window.maintenanceVehicles = 0;
+            window.inactiveVehicles = 0;
+            
+            return new Promise((resolve, reject) => {
+                // Charger d'abord les entreprises si elles ne sont pas déjà chargées
+                if (companies.length === 0) {
+                    loadCompanies()
+                        .then(() => {
+                            fetchFleets();
+                        })
+                        .catch(error => {
+                            console.error('Erreur lors du chargement des entreprises:', error);
+                            showError('Erreur lors du chargement des entreprises');
+                            reject(error);
+                        });
+                } else {
+                    fetchFleets();
+                }
+                
+                // Fonction interne pour récupérer les flottes
+                function fetchFleets() {
+                    // Tableau temporaire pour stocker les promesses de chargement des flottes
+                    const fleetPromises = [];
+                    fleets = [];
+                    
+                    console.log('Chargement des flottes pour', companies.length, 'entreprises');
+                    
+                    // Pour chaque entreprise, charger sa flotte
+                    companies.forEach(company => {
+                        console.log(`Chargement de la flotte pour l'entreprise: ${company.name} (${company._id})`);
+                        
+                        // URL de l'API pour récupérer la flotte d'une entreprise
+                        const fleetUrl = `${API_URL}/api/companies/${company._id}/fleet`;
+                        console.log('URL de l\'API:', fleetUrl);
+                        
+                        const promise = fetch(fleetUrl, {
+                            method: 'GET',
+                            headers: {
+                                'x-auth-token': token
+                            }
+                        })
+                        .then(response => {
+                            console.log(`Réponse pour ${company.name}:`, response.status, response.statusText);
+                            
+                            if (!response.ok) {
+                                // Si la flotte n'existe pas, on crée un objet vide
+                                if (response.status === 404) {
+                                    console.log(`Aucune flotte trouvée pour ${company.name}, création d'un objet vide`);
+                                    return { 
+                                        companyId: company._id,
+                                        companyName: company.name,
+                                        status: "inactive",
+                                        vehicleCount: 0,
+                                        lastSync: null,
+                                        vehicles: [],
+                                        created_at: company.created_at
+                                    };
+                                }
+                                throw new Error(`Erreur ${response.status} lors du chargement de la flotte de ${company.name}`);
+                            }
+                            return response.json();
+                        })
+                        .then(fleetData => {
+                            console.log(`Données de flotte reçues pour ${company.name}:`, fleetData);
+                            
+                            // Vérifier si fleetData est un objet ou un tableau
+                            if (Array.isArray(fleetData)) {
+                                console.warn(`La réponse pour ${company.name} est un tableau, attendu un objet:`, fleetData);
+                                // Prendre le premier élément si c'est un tableau
+                                fleetData = fleetData[0] || {};
+                            }
+                            
+                            // Déterminer la date de dernière synchronisation
+                            let lastSyncDate = null;
+                            if (fleetData.lastSync) {
+                                lastSyncDate = fleetData.lastSync;
+                            } else if (fleetData.last_sync) {
+                                lastSyncDate = fleetData.last_sync;
+                            } else if (fleetData.updated_at) {
+                                lastSyncDate = fleetData.updated_at;
+                            } else if (fleetData.updatedAt) {
+                                lastSyncDate = fleetData.updatedAt;
+                            }
+                            
+                            // Si nous avons une date de synchronisation, s'assurer qu'elle est au format Date
+                            if (lastSyncDate && typeof lastSyncDate === 'string') {
+                                try {
+                                    lastSyncDate = new Date(lastSyncDate).toISOString();
+                                } catch (e) {
+                                    console.error(`Erreur de conversion de date pour ${company.name}:`, e);
+                                    lastSyncDate = null;
+                                }
+                            }
+                            
+                            // Récupérer les véhicules associés à cette flotte
+                            return fetch(`${API_URL}/api/fleets/${fleetData._id || company._id}/vehicles`, {
+                                method: 'GET',
+                                headers: {
+                                    'x-auth-token': token
+                                }
+                            })
+                            .then(vehiclesResponse => {
+                                if (!vehiclesResponse.ok) {
+                                    console.warn(`Pas de véhicules trouvés pour la flotte de ${company.name}:`, vehiclesResponse.status);
+                                    return [];
+                                }
+                                return vehiclesResponse.json();
+                            })
+                            .then(vehicles => {
+                                console.log(`Véhicules récupérés pour ${company.name}:`, vehicles.length);
+                                
+                                // Compter les véhicules par statut
+                                let activeCount = 0;
+                                let maintenanceCount = 0;
+                                let inactiveCount = 0;
+                                
+                                vehicles.forEach(vehicle => {
+                                    // Vérifier le statut du véhicule (dans data.status ou status)
+                                    const status = (vehicle.data && vehicle.data.status) || vehicle.status || 'Actif';
+                                    
+                                    if (status === 'Actif' || status === 'active') {
+                                        activeCount++;
+                                        window.activeVehicles++;
+                                    } else if (status === 'Maintenance' || status === 'maintenance') {
+                                        maintenanceCount++;
+                                        window.maintenanceVehicles++;
+                                    } else {
+                                        inactiveCount++;
+                                        window.inactiveVehicles++;
+                                    }
+                                });
+                                
+                                window.totalVehicles += vehicles.length;
+                                
+                                // Ajouter le nom de l'entreprise et le nombre de véhicules
+                                const enrichedFleet = {
+                                    ...fleetData,
+                                    companyName: company.name,
+                                    companyId: company._id,
+                                    vehicleCount: vehicles.length,
+                                    activeVehicles: activeCount,
+                                    maintenanceVehicles: maintenanceCount,
+                                    inactiveVehicles: inactiveCount,
+                                    status: fleetData.status || "active",
+                                    lastSync: lastSyncDate,
+                                    vehicles: vehicles,
+                                    // S'assurer que l'ID de la flotte est disponible
+                                    _id: fleetData._id || `fleet_${company._id}`
+                                };
+                                
+                                // Enregistrer dans le log pour débogage
+                                console.log(`Flotte enrichie pour ${company.name}:`, enrichedFleet);
+                                
+                                fleets.push(enrichedFleet);
+                                return enrichedFleet;
+                            });
+                        })
+                        .catch(error => {
+                            console.error(`Erreur lors du chargement de la flotte pour ${company.name}:`, error);
+                            // Créer une entrée de flotte vide en cas d'erreur
+                            const emptyFleet = {
+                                companyId: company._id,
+                                companyName: company.name,
+                                status: "error",
+                                vehicleCount: 0,
+                                lastSync: null,
+                                vehicles: [],
+                                created_at: company.created_at
+                            };
+                            fleets.push(emptyFleet);
+                            return emptyFleet;
+                        });
+                        
+                        fleetPromises.push(promise);
+                    });
+                    
+                    // Attendre que toutes les flottes soient chargées
+                    Promise.all(fleetPromises)
+                        .then(() => {
+                            console.log('Toutes les flottes chargées:', fleets.length);
+                            
+                            // Trier les flottes par nom d'entreprise
+                            fleets.sort((a, b) => a.companyName.localeCompare(b.companyName));
+                            
+                            // Mettre à jour le tableau
+                            try {
+                                fleetsTable.setData(fleets);
+                                console.log('Données chargées dans le tableau des flottes');
+                                
+                                // Ajouter un événement pour les lignes du tableau
+                                fleetsTable.on("rowClick", function(e, row){
+                                    const fleetData = row.getData();
+                                    console.log("Ligne cliquée:", fleetData);
+                                });
+                            } catch (e) {
+                                console.error('Erreur lors du chargement des données dans le tableau des flottes:', e);
+                                // Réinitialiser le tableau en cas d'erreur
+                                initFleetsTable();
+                                fleetsTable.setData(fleets);
+                            }
+                            
+                            // Réinitialiser les icônes Lucide
+                            setTimeout(() => {
+                                lucide.createIcons();
+                            }, 100);
+                            
+                            // Mettre à jour les statistiques
+                            updateFleetStats();
+                            updateUserStats();
+                            
+                            // Afficher un message de succès
+                            showSuccess(`${fleets.length} flottes chargées avec succès`);
+                            resolve(fleets);
+                        })
+                        .catch(error => {
+                            console.error('Erreur lors du chargement des flottes:', error);
+                            showError('Erreur lors du chargement des flottes');
+                            reject(error);
+                        });
+                }
+            });
+        }
+        
+        // Mettre à jour les statistiques des flottes
+        function updateFleetStats() {
+            const activeFleets = fleets.filter(f => f.status === 'active').length;
+            const totalVehicles = window.totalVehicles || fleets.reduce((total, fleet) => total + (fleet.vehicleCount || 0), 0);
+            const syncedFleets = fleets.filter(f => f.lastSync).length;
+            
+            // Statistiques des véhicules par statut
+            const activeVehicles = window.activeVehicles || 0;
+            const maintenanceVehicles = window.maintenanceVehicles || 0;
+            const inactiveVehicles = window.inactiveVehicles || 0;
+            
+            // Calculer les pourcentages pour les véhicules
+            const activePercent = totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0;
+            const maintenancePercent = totalVehicles > 0 ? Math.round((maintenanceVehicles / totalVehicles) * 100) : 0;
+            const inactivePercent = totalVehicles > 0 ? Math.round((inactiveVehicles / totalVehicles) * 100) : 0;
+            
+            // Mettre à jour les compteurs principaux
+            const activeFleetElement = document.getElementById('active-fleets-count');
+            if (activeFleetElement) {
+                activeFleetElement.textContent = activeFleets;
+            }
+            
+            const totalVehiclesElement = document.getElementById('total-vehicles-count');
+            if (totalVehiclesElement) {
+                totalVehiclesElement.textContent = totalVehicles;
+            }
+            
+            const totalFleetsElement = document.getElementById('total-fleets-count');
+            if (totalFleetsElement) {
+                totalFleetsElement.textContent = fleets.length;
+            }
+            
+            // Mettre à jour les statistiques des véhicules dans la section Véhicules
+            const totalVehiclesCountElement = document.getElementById('total-vehicles');
+            if (totalVehiclesCountElement) {
+                totalVehiclesCountElement.textContent = totalVehicles;
+            }
+            
+            const activeVehiclesElement = document.getElementById('active-vehicles');
+            if (activeVehiclesElement) {
+                activeVehiclesElement.textContent = activeVehicles;
+            }
+            
+            const activeVehiclesPercentElement = document.getElementById('active-vehicles-percent');
+            if (activeVehiclesPercentElement) {
+                activeVehiclesPercentElement.textContent = `${activePercent}%`;
+            }
+            
+            const maintenanceVehiclesElement = document.getElementById('maintenance-vehicles');
+            if (maintenanceVehiclesElement) {
+                maintenanceVehiclesElement.textContent = maintenanceVehicles;
+            }
+            
+            const maintenanceVehiclesPercentElement = document.getElementById('maintenance-vehicles-percent');
+            if (maintenanceVehiclesPercentElement) {
+                maintenanceVehiclesPercentElement.textContent = `${maintenancePercent}%`;
+            }
+            
+            const inactiveVehiclesElement = document.getElementById('inactive-vehicles');
+            if (inactiveVehiclesElement) {
+                inactiveVehiclesElement.textContent = inactiveVehicles;
+            }
+            
+            const inactiveVehiclesPercentElement = document.getElementById('inactive-vehicles-percent');
+            if (inactiveVehiclesPercentElement) {
+                inactiveVehiclesPercentElement.textContent = `${inactivePercent}%`;
+            }
+            
+            // Mettre à jour les statistiques anciennes pour compatibilité
+            const statsVehiclesElement = document.getElementById('stats-vehicles');
+            if (statsVehiclesElement) {
+                statsVehiclesElement.textContent = totalVehicles;
+            }
+            
+            const statsCompaniesElement = document.getElementById('stats-companies');
+            if (statsCompaniesElement) {
+                statsCompaniesElement.textContent = companies.length;
+            }
+            
+            const statsUsersElement = document.getElementById('stats-users');
+            if (statsUsersElement) {
+                statsUsersElement.textContent = users.length;
+            }
+            
+            const statsActiveVehiclesElement = document.getElementById('stats-active-vehicles');
+            if (statsActiveVehiclesElement) {
+                statsActiveVehiclesElement.textContent = activeVehicles;
+            }
+            
+            const statsMaintenanceVehiclesElement = document.getElementById('stats-maintenance-vehicles');
+            if (statsMaintenanceVehiclesElement) {
+                statsMaintenanceVehiclesElement.textContent = maintenanceVehicles;
+            }
+            
+            const statsFleetsElement = document.getElementById('stats-fleets');
+            if (statsFleetsElement) {
+                statsFleetsElement.textContent = fleets.length;
+            }
+            
+            // Ajouter des statistiques supplémentaires si les éléments existent
+            const syncedFleetsElement = document.getElementById('synced-fleets-count');
+            if (syncedFleetsElement) {
+                syncedFleetsElement.textContent = syncedFleets;
+            }
+            
+            // Mettre à jour la date de dernière mise à jour
+            const lastUpdateElement = document.getElementById('last-update-time');
+            if (lastUpdateElement) {
+                const now = new Date();
+                lastUpdateElement.textContent = now.toLocaleTimeString('fr-FR');
+            }
+            
+            // Mettre à jour les statistiques des utilisateurs également
+            updateUserStats();
+        }
+        
+        // Fonction pour mettre à jour les statistiques des utilisateurs
+        function updateUserStats() {
+            // Vérifier que les données des utilisateurs sont disponibles
+            if (!users || !Array.isArray(users)) {
+                console.warn('Impossible de mettre à jour les statistiques des utilisateurs: données non disponibles');
+                return;
+            }
+            
+            console.log('Mise à jour des statistiques des utilisateurs:', users.length, 'utilisateurs');
+            
+            // Calculer les statistiques
+            const totalUsers = users.length;
+            const adminUsers = users.filter(user => user.isAdmin).length;
+            const activeUsers = users.filter(user => user.status === 'active').length;
+            
+            // Mettre à jour les statistiques dans l'interface
+            const statsUsersElement = document.getElementById('stats-users');
+            if (statsUsersElement) {
+                statsUsersElement.textContent = totalUsers;
+            }
+            
+            console.log('Statistiques des utilisateurs mises à jour:', {
+                totalUsers,
+                adminUsers,
+                activeUsers
+            });
+        }
+        
+        // Initialiser le tableau des flottes
+        function initFleetsTable() {
+            // Si le tableau existe déjà, le détruire pour éviter les doublons
+            if (fleetsTable) {
+                fleetsTable.destroy();
+            }
+            
+            // Définir le formateur de date
+            var dateFormatter = function(cell, formatterParams){
+                var value = cell.getValue();
+                if(!value){
+                    return "<span class='text-gray-400'>Jamais</span>";
+                }
+                
+                try {
+                    var date = new Date(value);
+                    // Vérifier si la date est valide
+                    if (isNaN(date.getTime())) {
+                        return "<span class='text-gray-400'>Date invalide</span>";
+                    }
+                    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                } catch (e) {
+                    console.error('Erreur de formatage de date:', e, value);
+                    return "<span class='text-gray-400'>Format invalide</span>";
+                }
+            };
+            
+            // Définir le formateur d'actions
+            var actionsFormatter = function(cell, formatterParams) {
+                const row = cell.getRow().getData();
+                const companyId = row.companyId;
+                const fleetId = row.fleetId;
+                const companyName = row.companyName || 'Entreprise';
+                
+                return `
+                    <div class="flex space-x-1">
+                        <button 
+                            onclick="manageFleet('${companyId}', '${companyName}', '${fleetId || ''}')" 
+                            class="btn btn-xs btn-primary" 
+                            title="Gérer la flotte de ${companyName}">
+                            <i data-lucide="truck" class="w-4 h-4"></i>
+                            Gérer
+                        </button>
+                        <button 
+                            onclick="syncFleet('${companyId}', '${companyName}')" 
+                            class="btn btn-xs btn-secondary" 
+                            title="Synchroniser la flotte de ${companyName}">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            Sync
+                        </button>
+                    </div>
+                `;
+            };
+            
+            // Initialiser le tableau Tabulator
+            fleetsTable = new Tabulator("#fleets-table", {
+                layout: "fitColumns",
+                pagination: "local",
+                paginationSize: 10,
+                placeholder: "Aucune flotte trouvée",
+                columns: [
+                    { title: "Entreprise", field: "companyName", sorter: "string", width: 200 },
+                    { title: "Statut", field: "status", sorter: "string", width: 120 },
+                    { title: "Véhicules", field: "vehicleCount", sorter: "number", width: 120 },
+                    { title: "Dernière synchronisation", field: "lastSync", sorter: "date", formatter: dateFormatter, width: 180 },
+                    { title: "Actions", formatter: actionsFormatter, width: 150, hozAlign: "center" }
+                ],
+                renderComplete: function() {
+                    // Réinitialiser les icônes Lucide après le rendu du tableau
+                    lucide.createIcons();
+                    console.log("Tableau des flottes rendu avec succès");
+                }
+            });
+            
+            console.log("Tableau des flottes initialisé");
+        }
+        
+        // Mettre à jour les statistiques des flottes
+        function updateFleetStats() {
+            // Vérifier que les données des flottes sont disponibles
+            if (!fleets || !Array.isArray(fleets)) {
+                console.warn('Impossible de mettre à jour les statistiques des flottes: données non disponibles');
+                return;
+            }
+            
+            console.log('Mise à jour des statistiques des flottes:', fleets.length, 'flottes');
+            
+            // Calculer les statistiques
+            const totalFleets = fleets.length;
+            const activeFleets = fleets.filter(fleet => fleet.status === 'active').length;
+            const syncedFleets = fleets.filter(fleet => fleet.lastSync).length;
+            
+            // Calculer le nombre total de véhicules
+            const totalVehicles = fleets.reduce((total, fleet) => {
+                return total + (fleet.vehicleCount || 0);
+            }, 0);
+            
+            // Mettre à jour les éléments HTML
+            document.getElementById('total-fleets-count').textContent = totalFleets;
+            document.getElementById('active-fleets-count').textContent = activeFleets;
+            document.getElementById('synced-fleets-count').textContent = syncedFleets;
+            document.getElementById('stats-vehicles').textContent = totalVehicles;
+            
+            // Mettre à jour l'heure de la dernière mise à jour
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR');
+            document.getElementById('last-update-time').textContent = timeString;
+            
+            console.log('Statistiques des flottes mises à jour:', {
+                totalFleets,
+                activeFleets,
+                syncedFleets,
+                totalVehicles,
+                lastUpdate: timeString
+            });
+        }
+        
+        // Synchroniser une flotte
+        function syncFleet(companyId) {
+            // Vérifier que l'ID de l'entreprise est disponible
+            if (!companyId) {
+                showError('ID d\'entreprise manquant pour la synchronisation');
+                return;
+            }
+            
+            // Trouver l'entreprise correspondante pour obtenir son nom
+            const company = companies.find(c => c._id === companyId);
+            const companyName = company ? company.name : 'l\'entreprise';
+            
+            // Afficher un message d'information
+            showInfo(`Synchronisation de la flotte de ${companyName} en cours...`);
+            
+            const token = localStorage.getItem('token');
+            const syncUrl = `${API_URL}/api/companies/${companyId}/fleet/sync`;
+            
+            fetch(syncUrl, {
+                method: 'POST',
+                headers: {
+                    'x-auth-token': token
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status} lors de la synchronisation`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(`Flotte de ${companyName} synchronisée avec succès:`, data);
+                
+                // Mettre à jour la date de dernière synchronisation dans le tableau
+                const now = new Date();
+                const fleetRow = fleetsTable.getRows().find(row => {
+                    const rowData = row.getData();
+                    return rowData.companyId === companyId;
+                });
+                
+                if (fleetRow) {
+                    const rowData = fleetRow.getData();
+                    rowData.lastSync = now;
+                    fleetRow.update(rowData);
+                    console.log(`Date de synchronisation mise à jour pour ${companyName}`);
+                }
+                
+                // Mettre à jour également dans le tableau fleets
+                const fleetIndex = fleets.findIndex(f => f.companyId === companyId);
+                if (fleetIndex !== -1) {
+                    fleets[fleetIndex].lastSync = now;
+                }
+                
+                // Mettre à jour les statistiques
+                updateFleetStats();
+                
+                // Afficher un message de succès
+                showSuccess(`Flotte de ${companyName} synchronisée avec succès`);
+                
+                // Recharger les données après un court délai
+                setTimeout(() => {
+                    loadFleets();
+                }, 1000);
+            })
+            .catch(error => {
+                console.error(`Erreur lors de la synchronisation de la flotte de ${companyName}:`, error);
+                showError(`Erreur lors de la synchronisation: ${error.message}`);
+            });
+        }
+        
+        // Exporter les données d'une flotte
+        function exportFleetData(companyId) {
+            // Vérifier que l'ID de l'entreprise est disponible
+            if (!companyId) {
+                showError('ID d\'entreprise manquant pour l\'exportation');
+                return;
+            }
+            
+            // Trouver l'entreprise correspondante pour obtenir son nom
+            const company = companies.find(c => c._id === companyId);
+            const companyName = company ? company.name : 'inconnue';
+            
+            // Trouver la flotte correspondante
+            const fleet = fleets.find(f => f.companyId === companyId);
+            if (!fleet) {
+                showError(`Aucune flotte trouvée pour ${companyName}`);
+                return;
+            }
+            
+            // Préparer les données pour l'exportation
+            const exportData = {
+                entreprise: companyName,
+                flotte: {
+                    id: fleet._id,
+                    status: fleet.status,
+                    vehicleCount: fleet.vehicleCount,
+                    activeVehicles: fleet.activeVehicles || 0,
+                    maintenanceVehicles: fleet.maintenanceVehicles || 0,
+                    inactiveVehicles: fleet.inactiveVehicles || 0,
+                    lastSync: fleet.lastSync ? new Date(fleet.lastSync).toLocaleString('fr-FR') : 'Jamais',
+                    created_at: fleet.created_at ? new Date(fleet.created_at).toLocaleString('fr-FR') : 'Inconnue'
+                },
+                vehicles: fleet.vehicles || []
+            };
+            
+            // Convertir en JSON
+            const jsonString = JSON.stringify(exportData, null, 2);
+            
+            // Créer un blob pour le téléchargement
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Créer un lien de téléchargement et cliquer dessus
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `flotte_${companyName.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Nettoyer
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+            
+            showSuccess(`Données de la flotte de ${companyName} exportées avec succès`);
+        }
+        
+        // Afficher les détails d'une flotte
+        function viewFleetDetails(companyId) {
+            // Vérifier que l'ID de l'entreprise est disponible
+            if (!companyId) {
+                showError('ID d\'entreprise manquant pour afficher les détails');
+                return;
+            }
+            
+            // Trouver l'entreprise correspondante pour obtenir son nom
+            const company = companies.find(c => c._id === companyId);
+            const companyName = company ? company.name : 'inconnue';
+            
+            // Trouver la flotte correspondante
+            const fleet = fleets.find(f => f.companyId === companyId);
+            if (!fleet) {
+                showError(`Aucune flotte trouvée pour ${companyName}`);
+                return;
+            }
+            
+            // Préparer les données pour l'affichage
+            const fleetDetails = {
+                entreprise: companyName,
+                id: fleet._id,
+                status: fleet.status,
+                vehicleCount: fleet.vehicleCount,
+                activeVehicles: fleet.activeVehicles || 0,
+                maintenanceVehicles: fleet.maintenanceVehicles || 0,
+                inactiveVehicles: fleet.inactiveVehicles || 0,
+                lastSync: fleet.lastSync ? new Date(fleet.lastSync).toLocaleString('fr-FR') : 'Jamais',
+                created_at: fleet.created_at ? new Date(fleet.created_at).toLocaleString('fr-FR') : 'Inconnue'
+            };
+            
+            // Construire le contenu HTML pour la modale
+            let modalContent = `
+                <div class="p-4">
+                    <h3 class="text-lg font-bold mb-4">Détails de la flotte de ${companyName}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra w-full">
+                            <tbody>
+                                <tr>
+                                    <td class="font-bold">Entreprise</td>
+                                    <td>${fleetDetails.entreprise}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">ID de la flotte</td>
+                                    <td>${fleetDetails.id}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Statut</td>
+                                    <td>${fleetDetails.status}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Total véhicules</td>
+                                    <td>${fleetDetails.vehicleCount}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Véhicules actifs</td>
+                                    <td>${fleetDetails.activeVehicles}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Véhicules en maintenance</td>
+                                    <td>${fleetDetails.maintenanceVehicles}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Véhicules inactifs</td>
+                                    <td>${fleetDetails.inactiveVehicles}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Dernière synchronisation</td>
+                                    <td>${fleetDetails.lastSync}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold">Date de création</td>
+                                    <td>${fleetDetails.created_at}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button class="btn btn-primary" onclick="manageFleet('${companyId}')">Gérer cette flotte</button>
+                    </div>
+                </div>
+            `;
+            
+            // Afficher la modale
+            const modalElement = document.getElementById('modal-content');
+            if (modalElement) {
+                modalElement.innerHTML = modalContent;
+                const modal = document.getElementById('modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                }
+            } else {
+                showError('Impossible d\'afficher la modale des détails');
+            }
+        }
+        
+        // Rediriger vers la page de gestion de flotte
+        function manageFleet(companyId) {
+            // Vérifier que l'ID de l'entreprise est disponible
+            if (!companyId) {
+                showError('ID d\'entreprise manquant pour la gestion de flotte');
+                return;
+            }
+            
+            console.log(`Redirection vers la page de gestion de flotte pour l'entreprise: ${companyId}`);
+            
+            // Stocker l'ID de l'entreprise dans le localStorage pour le récupérer sur la page fleet.html
+            localStorage.setItem('currentCompanyId', companyId);
+            
+            // Trouver le nom de l'entreprise pour l'afficher sur la page fleet.html
+            const company = companies.find(c => c._id === companyId);
+            if (company) {
+                localStorage.setItem('currentCompanyName', company.name);
+            }
+            
+            // Rediriger vers la page fleet.html
+            window.location.href = `fleet.html?company=${companyId}`;
+        }
+        
+        // Voir les détails d'une flotte
+        function viewFleetDetails(companyId) {
+            // Vérifier que l'ID de l'entreprise est disponible
+            if (!companyId) {
+                showError('ID d\'entreprise manquant pour afficher les détails');
+                return;
+            }
+            
+            // Trouver la flotte correspondante
+            const fleetData = fleets.find(f => f.companyId === companyId);
+            
+            if (!fleetData) {
+                showError(`Aucune donnée de flotte trouvée pour l'entreprise: ${companyId}`);
+                return;
+            }
+            
+            console.log(`Affichage des détails de la flotte pour l'entreprise: ${companyId}`, fleetData);
+            
+            // Créer un modal pour afficher les détails de la flotte
+            const modalId = 'fleet-details-modal';
+            let modal = document.getElementById(modalId);
+            
+            // Supprimer le modal s'il existe déjà
+            if (modal) {
+                modal.remove();
+            }
+            
+            // Créer le modal
+            modal = document.createElement('dialog');
+            modal.id = modalId;
+            modal.className = 'modal';
+            
+            // Construire le contenu du modal
+            const vehiclesList = fleetData.vehicles && fleetData.vehicles.length > 0 ?
+                fleetData.vehicles.map(vehicle => `
+                    <tr>
+                        <td>${vehicle.licensePlate || 'N/A'}</td>
+                        <td>${vehicle.make || 'N/A'} ${vehicle.model || ''}</td>
+                        <td>${vehicle.year || 'N/A'}</td>
+                        <td>${vehicle.status || 'N/A'}</td>
+                    </tr>
+                `).join('') :
+                `<tr><td colspan="4" class="text-center">Aucun véhicule dans cette flotte</td></tr>`;
+            
+            modal.innerHTML = `
+                <div class="modal-box w-11/12 max-w-5xl">
+                    <h3 class="font-bold text-lg mb-4">Détails de la flotte - ${fleetData.companyName}</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="card bg-base-200 shadow-sm">
+                            <div class="card-body">
+                                <h4 class="card-title text-md">Informations générales</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="table table-zebra">
+                                        <tbody>
+                                            <tr>
+                                                <th>Entreprise</th>
+                                                <td>${fleetData.companyName}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Statut</th>
+                                                <td><div class="badge ${getStatusColor(fleetData.status)}">${fleetData.status}</div></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Nombre de véhicules</th>
+                                                <td>${fleetData.vehicleCount}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Dernière synchronisation</th>
+                                                <td>${fleetData.lastSync ? new Date(fleetData.lastSync).toLocaleString('fr-FR') : 'Jamais'}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Date de création</th>
+                                                <td>${new Date(fleetData.created_at).toLocaleString('fr-FR')}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-base-200 shadow-sm">
+                            <div class="card-body">
+                                <h4 class="card-title text-md">Statistiques</h4>
+                                <div class="stats stats-vertical shadow">
+                                    <div class="stat">
+                                        <div class="stat-title">Véhicules actifs</div>
+                                        <div class="stat-value">${countVehiclesByStatus(fleetData.vehicles, 'active')}</div>
+                                    </div>
+                                    <div class="stat">
+                                        <div class="stat-title">Véhicules en maintenance</div>
+                                        <div class="stat-value">${countVehiclesByStatus(fleetData.vehicles, 'maintenance')}</div>
+                                    </div>
+                                    <div class="stat">
+                                        <div class="stat-title">Véhicules inactifs</div>
+                                        <div class="stat-value">${countVehiclesByStatus(fleetData.vehicles, 'inactive')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-base-200 shadow-sm mb-4">
+                        <div class="card-body">
+                            <h4 class="card-title text-md">Liste des véhicules</h4>
+                            <div class="overflow-x-auto">
+                                <table class="table table-zebra">
+                                    <thead>
+                                        <tr>
+                                            <th>Plaque</th>
+                                            <th>Modèle</th>
+                                            <th>Année</th>
+                                            <th>Statut</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${vehiclesList}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-action">
+                        <button class="btn btn-primary" onclick="manageFleet('${fleetData.companyId}')">Gérer cette flotte</button>
+                        <form method="dialog">
+                            <button class="btn">Fermer</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            // Ajouter le modal au document
+            document.body.appendChild(modal);
+            
+            // Afficher le modal
+            modal.showModal();
+            
+            // Initialiser les icônes
+            lucide.createIcons();
+        }
+        
+        // Fonction utilitaire pour obtenir la couleur du statut
+        function getStatusColor(status) {
+            switch(status) {
+                case "active": return "bg-success text-success-content";
+                case "inactive": return "bg-warning text-warning-content";
+                case "pending": return "bg-info text-info-content";
+                case "error": return "bg-error text-error-content";
+                default: return "bg-neutral text-neutral-content";
+            }
+        }
+        
+        // Fonction utilitaire pour compter les véhicules par statut
+        function countVehiclesByStatus(vehicles, status) {
+            if (!vehicles || !Array.isArray(vehicles)) return 0;
+            return vehicles.filter(v => v.status === status).length;
+        }
+        
+        // Gérer une flotte
+        function manageFleet(companyId) {
+            console.log('Gérer la flotte pour l\'entreprise:', companyId);
+            
+            if (!companyId) {
+                showError('Identifiant d\'entreprise manquant');
+                return;
+            }
+            
+            // Trouver l'entreprise correspondante
+            const company = companies.find(c => c._id === companyId);
+            if (!company) {
+                showError('Entreprise non trouvée');
+                return;
+            }
+            
+            // Trouver la flotte correspondante
+            const fleet = fleets.find(f => f.companyId === companyId);
+            if (!fleet) {
+                console.warn('Flotte non trouvée pour cette entreprise, création d\'une référence temporaire');
+                // Créer une référence temporaire pour la flotte
+                const tempFleet = {
+                    _id: `fleet_${companyId}`,
+                    companyId: companyId,
+                    companyName: company.name,
+                    status: "inactive",
+                    vehicleCount: 0,
+                    lastSync: null,
+                    vehicles: []
+                };
+                fleets.push(tempFleet);
+                showInfo(`Création d'une nouvelle flotte pour ${company.name}`);
+            }
+            
+            // Récupérer la flotte (originale ou nouvellement créée)
+            const targetFleet = fleets.find(f => f.companyId === companyId);
+            
+            // Stocker les informations dans localStorage pour la page fleet.html
+            localStorage.setItem('currentCompanyId', companyId);
+            localStorage.setItem('currentCompanyName', company.name);
+            localStorage.setItem('currentFleetId', targetFleet._id);
+            
+            console.log('Informations stockées pour la redirection:', {
+                companyId,
+                companyName: company.name,
+                fleetId: targetFleet._id
+            });
+            
+            // Rediriger vers la page de gestion de flotte avec l'ID de l'entreprise
+            window.location.href = `fleet.html?company=${companyId}`;
+        }
+        
+        // Synchroniser une flotte
+        function syncFleet(companyId) {
+            const token = localStorage.getItem('token');
+            
+            if (!companyId) {
+                showError('Identifiant d\'entreprise manquant pour la synchronisation');
+                return;
+            }
+            
+            // Trouver l'entreprise correspondante pour afficher son nom
+            const company = companies.find(c => c._id === companyId);
+            const companyName = company ? company.name : companyId;
+            
+            showInfo(`Synchronisation de la flotte de ${companyName} en cours...`);
+            
+            // Mettre à jour la date de dernière synchronisation dans l'interface
+            const now = new Date();
+            const fleet = fleets.find(f => f.companyId === companyId);
+            if (fleet) {
+                fleet.lastSync = now.toISOString();
+                // Mettre à jour le tableau si possible
+                try {
+                    fleetsTable.updateData([{...fleet}]);
+                } catch (e) {
+                    console.error('Erreur lors de la mise à jour du tableau:', e);
+                }
+            }
+            
+            fetch(`${API_URL}/api/companies/${companyId}/fleet/sync`, {
+                method: 'POST',
+                headers: {
+                    'x-auth-token': token,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status} lors de la synchronisation de la flotte`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Synchronisation réussie:', data);
+                showSuccess(`Flotte de ${companyName} synchronisée avec succès`);
+                
+                // Recharger les flottes pour avoir les données à jour
+                loadFleets();
+            })
+            .catch(error => {
+                console.error('Erreur de synchronisation:', error);
+                showError(`Erreur lors de la synchronisation de la flotte de ${companyName}`);
+                
+                // Recharger les flottes pour avoir un état cohérent
+                loadFleets();
+            });
+        }
+        
+        // Voir la flotte d'une entreprise (ancienne version - redirection vers la page de gestion)
+        function viewFleet(companyId) {
+            // Rediriger vers la page de gestion de la flotte
+            window.location.href = `fleet.html?company=${companyId}`;
+        }
+        
+        // Exporter les données des flottes
+        function exportFleetData() {
+            if (!fleets || fleets.length === 0) {
+                showError('Aucune donnée de flotte à exporter');
+                return;
+            }
+            
+            // Préparer les données pour l'export
+            const exportData = fleets.map(fleet => {
+                // Simplifier les données pour l'export
+                return {
+                    entreprise: fleet.companyName,
+                    statut: fleet.status,
+                    nombre_vehicules: fleet.vehicleCount,
+                    derniere_synchronisation: fleet.lastSync ? new Date(fleet.lastSync).toLocaleString('fr-FR') : 'Jamais',
+                    date_creation: new Date(fleet.created_at).toLocaleString('fr-FR'),
+                    vehicules: fleet.vehicles ? fleet.vehicles.map(v => {
+                        return {
+                            plaque: v.licensePlate || 'N/A',
+                            marque: v.make || 'N/A',
+                            modele: v.model || 'N/A',
+                            annee: v.year || 'N/A',
+                            statut: v.status || 'N/A'
+                        };
+                    }) : []
+                };
+            });
+            
+            // Convertir en JSON
+            const jsonData = JSON.stringify(exportData, null, 2);
+            
+            // Créer un blob et un lien de téléchargement
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Créer un élément a pour le téléchargement
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `flottes_export_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Nettoyer
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+            
+            showSuccess('Données exportées avec succès');
+        }
+        
+        // Éditer une entreprise
+        function editCompany(companyId) {
+            // À implémenter
+            showInfo('Fonctionnalité à venir');
+        }
+        
+        // Supprimer une entreprise
+        function deleteCompany(companyId) {
+            // À implémenter
+            showInfo('Fonctionnalité à venir');
+        }
+        
+        // Éditer un utilisateur
+        function editUser(userId) {
+            // À implémenter
+            showInfo('Fonctionnalité à venir');
+        }
+        
+        // Supprimer un utilisateur
+        function deleteUser(userId) {
+            // À implémenter
+            showInfo('Fonctionnalité à venir');
+        }
+        
+        // Afficher une erreur
+        function showError(message) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-error mb-4';
+            notification.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>${message}</span>
+            `;
+            
+            const toastContainer = document.getElementById('toast-container');
+            toastContainer.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 7000);
+        }
+        
+        // Afficher un succès
+        function showSuccess(message) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-success mb-4';
+            notification.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>${message}</span>
+            `;
+            
+            const toastContainer = document.getElementById('toast-container');
+            toastContainer.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+        
+        // Afficher une information
+        function showInfo(message) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-info mb-4';
+            notification.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>${message}</span>
+            `;
+            
+            const toastContainer = document.getElementById('toast-container');
+            toastContainer.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+        
+        // Déconnexion
+        function logout() {
+            // Supprimer toutes les informations d'authentification et de session
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentClientId');
+            localStorage.removeItem('clientName');
+            localStorage.removeItem('currentCompanyId');
+            localStorage.removeItem('companyName');
+            localStorage.removeItem('currentFleetId');
+            localStorage.removeItem('currentFleetName');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('demoMode');
+            localStorage.removeItem('lastSyncTimestamp');
+            
+            // Rediriger vers la page de connexion
+            window.location.href = 'login.html';
+        }
+        
+        // Fonction de débogage pour tester les API
+        function testAPI() {
+            document.getElementById('debug-container').style.display = 'block';
+            const debugOutput = document.getElementById('debug-output');
+            debugOutput.innerHTML = 'Test des API en cours...<br>';
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                debugOutput.innerHTML += '<span class="text-error">Erreur: Aucun token JWT trouvé!</span><br>';
+                return;
+            }
+            
+            debugOutput.innerHTML += `Token JWT: ${token.substring(0, 20)}...<br><br>`;
+            
+            // Test de la vérification du token
+            debugOutput.innerHTML += '<b>1. Test de la vérification du token:</b><br>';
+            fetch(`${API_URL}/api/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'x-auth-token': token
+                }
+            })
+            .then(response => {
+                debugOutput.innerHTML += `Réponse: ${response.status} ${response.statusText}<br>`;
+                return response.json();
+            })
+            .then(data => {
+                debugOutput.innerHTML += `Données: ${JSON.stringify(data, null, 2)}<br><br>`;
+                
+                // Test de la récupération des entreprises
+                debugOutput.innerHTML += '<b>2. Test de la récupération des entreprises:</b><br>';
+                return fetch(`${API_URL}/api/companies`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                });
+            })
+            .then(response => {
+                debugOutput.innerHTML += `Réponse: ${response.status} ${response.statusText}<br>`;
+                return response.json();
+            })
+            .then(data => {
+                debugOutput.innerHTML += `Entreprises trouvées: ${data.length}<br>`;
+                debugOutput.innerHTML += `Données: ${JSON.stringify(data, null, 2)}<br><br>`;
+                
+                // Test de la récupération des utilisateurs
+                debugOutput.innerHTML += '<b>3. Test de la récupération des utilisateurs:</b><br>';
+                return fetch(`${API_URL}/api/auth/users`, {
+                    method: 'GET',
+                    headers: {
+                        'x-auth-token': token
+                    }
+                });
+            })
+            .then(response => {
+                debugOutput.innerHTML += `Réponse: ${response.status} ${response.statusText}<br>`;
+                return response.json();
+            })
+            .then(data => {
+                debugOutput.innerHTML += `Utilisateurs trouvés: ${data.length}<br>`;
+                debugOutput.innerHTML += `Données: ${JSON.stringify(data, null, 2)}<br><br>`;
+                
+                // Test de l'initialisation des tableaux
+                debugOutput.innerHTML += '<b>4. Vérification des tableaux:</b><br>';
+                debugOutput.innerHTML += `companiesTable initialisé: ${companiesTable ? 'Oui' : 'Non'}<br>`;
+                debugOutput.innerHTML += `usersTable initialisé: ${usersTable ? 'Oui' : 'Non'}<br><br>`;
+                
+                // Forcer la réinitialisation et le rechargement des tableaux
+                debugOutput.innerHTML += '<b>5. Réinitialisation forcée des tableaux:</b><br>';
+                initCompaniesTable();
+                initUsersTable();
+                companiesTable.setData(companies);
+                usersTable.setData(data);
+                debugOutput.innerHTML += 'Tableaux réinitialisés et données chargées.<br>';
+            })
+            .catch(error => {
+                debugOutput.innerHTML += `<span class="text-error">Erreur: ${error.message}</span><br>`;
+            });
+        }
+    </script>
+    
+    <!-- Modale pour afficher les détails -->
+    <div id="modal" class="modal">
+        <div class="modal-box w-11/12 max-w-5xl">
+            <div id="modal-content">
+                <!-- Le contenu sera injecté dynamiquement -->
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-primary" onclick="document.getElementById('modal').classList.add('hidden')">Fermer</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

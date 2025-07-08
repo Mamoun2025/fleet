@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Synchronisation - Fleet Management</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #console {
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #4caf50;
+        }
+        .error {
+            color: #f44336;
+        }
+        .info {
+            color: #2196f3;
+        }
+        .warning {
+            color: #ff9800;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Synchronisation - Fleet Management</h1>
+    
+    <div class="button-container">
+        <button id="run-tests">Exécuter les tests</button>
+        <button id="clear-console">Effacer la console</button>
+    </div>
+    
+    <div id="console">Cliquez sur "Exécuter les tests" pour démarrer les tests de synchronisation...</div>
+    
+    <!-- Inclure les scripts nécessaires -->
+    <script src="backend/public/fleet-sync.js"></script>
+    <script src="sync-test.js"></script>
+    
+    <script>
+        document.getElementById('run-tests').addEventListener('click', function() {
+            startSyncTests();
+        });
+        
+        document.getElementById('clear-console').addEventListener('click', function() {
+            document.getElementById('console').innerHTML = '';
+        });
+    </script>
+</body>
+</html>
