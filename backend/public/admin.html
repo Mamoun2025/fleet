@@ -35,7 +35,6 @@
         // Rediriger vers la page de connexion si non connecté ou non admin principal
         document.addEventListener('DOMContentLoaded', function() {
             const token = localStorage.getItem('token');
-            const API_URL = 'http://localhost:3000';
             
             if (!token) {
                 window.location.href = 'login.html';
@@ -43,7 +42,7 @@
             }
             
             // Vérifier si l'utilisateur est l'administrateur principal
-            fetch(`${API_URL}/api/auth/verify`, {
+            fetch('/api/auth/verify', {
                 method: 'GET',
                 headers: {
                     'x-auth-token': token
@@ -769,7 +768,7 @@
             console.log('Chargement des entreprises avec token:', token);
             
             return new Promise((resolve, reject) => {
-                fetch(`${API_URL}/api/companies`, {
+                fetch('/api/companies', {
                     method: 'GET',
                     headers: {
                         'x-auth-token': token
@@ -827,7 +826,7 @@
             console.log('Chargement des utilisateurs avec token:', token);
             
             return new Promise((resolve, reject) => {
-                fetch(`${API_URL}/api/auth/users`, {
+                fetch('/api/auth/users', {
                     method: 'GET',
                     headers: {
                         'x-auth-token': token
@@ -1004,7 +1003,7 @@
             // Afficher un indicateur de chargement
             showInfo('Création de l\'entreprise en cours...');
             
-            fetch(`${API_URL}/api/companies`, {
+            fetch('/api/companies', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1052,7 +1051,7 @@
             const password = document.getElementById('user-password').value;
             const companyId = document.getElementById('user-company').value;
             
-            fetch(`${API_URL}/api/auth/create-user`, {
+            fetch('/api/auth/create-user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1146,7 +1145,7 @@
             debugContent.innerHTML = '<div class="alert alert-info">Test API en cours...</div>';
             
             // Tester l'authentification
-            fetch(`${API_URL}/api/auth/verify`, {
+            fetch('/api/auth/verify', {
                 method: 'GET',
                 headers: {
                     'x-auth-token': token
@@ -1375,7 +1374,7 @@
                         console.log(`Chargement de la flotte pour l'entreprise: ${company.name} (${company._id})`);
                         
                         // URL de l'API pour récupérer la flotte d'une entreprise
-                        const fleetUrl = `${API_URL}/api/companies/${company._id}/fleet`;
+                        const fleetUrl = `/api/companies/${company._id}/fleet`;
                         console.log('URL de l\'API:', fleetUrl);
                         
                         const promise = fetch(fleetUrl, {
@@ -1438,7 +1437,7 @@
                             }
                             
                             // Récupérer les véhicules associés à cette flotte
-                            return fetch(`${API_URL}/api/fleets/${fleetData._id || company._id}/vehicles`, {
+                            return fetch(`/api/fleets/${fleetData._id || company._id}/vehicles`, {
                                 method: 'GET',
                                 headers: {
                                     'x-auth-token': token

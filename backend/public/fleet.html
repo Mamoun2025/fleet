@@ -487,7 +487,7 @@
             // Si on a un token, vérifier les informations via l'API
             if (token) {
                 // Récupérer les informations du client depuis l'API
-                fetch('http://localhost:3000/api/auth/verify', {
+                fetch('/api/auth/verify', {
                     method: 'GET',
                     headers: {
                         'x-auth-token': token
