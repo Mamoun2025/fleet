@@ -28,7 +28,7 @@ mongoose.connect(process.env.MONGO_URI, {
   connectTimeoutMS: 30000         // Timeout de connexion
 })
 .then(() => {
-  console.log('Connexion à MongoDB Atlas réussie');
+  console.log('Connexion à MongoDB Atlas réussie !');
 })
 .catch((err) => {
   console.error('Erreur de connexion à MongoDB:', err);
@@ -42,8 +42,13 @@ app.use('/api/fleets', require('./routes/fleets'));
 app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/sync', require('./routes/sync'));
 
-// Route de test
+// Route racine pour servir la page d'accueil
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Route API pour vérifier que le serveur fonctionne
+app.get('/api', (req, res) => {
   res.json({ message: 'API Fleet Management opérationnelle' });
 });
 
