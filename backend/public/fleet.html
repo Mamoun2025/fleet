@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Fleet Management</title>
     
+    <!-- Police Google Font Inter pour un look premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <!-- Vérification d'authentification -->
     <script>
         // Rediriger vers la page de connexion si non connecté
@@ -38,6 +43,27 @@
     <!-- DaisyUI et TailwindCSS -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'steel-blue': '#4682B4',
+                        'night-blue': '#003366',
+                        'off-white': '#F5F7FA',
+                        'deep-gray': '#2C3E50'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 12px rgba(0, 0, 0, 0.05)',
+                        'premium': '0 8px 24px rgba(0, 0, 0, 0.08)'
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,11 +83,11 @@
 </head>
 <body>
     <!-- Navbar avec informations utilisateur et synchronisation -->
-    <div class="navbar bg-base-100 shadow-sm">
+    <div class="navbar bg-base-100 shadow-soft">
         <div class="flex-1">
-            <span class="font-semibold text-lg">Fleet</span>
+            <span class="font-semibold text-lg tracking-tight text-night-blue">Fleet</span>
             <span class="mx-2 text-gray-400">/</span>
-            <span id="fleet-title" class="font-medium text-primary">Chargement...</span>
+            <span id="fleet-title" class="font-medium text-steel-blue">Chargement...</span>
         </div>
         <div class="flex items-center space-x-2">
             <!-- Indicateur de synchronisation -->
@@ -95,39 +121,38 @@
     
     <!-- Section recherche et filtres -->
     <div class="search-section">
-        <div class="flex flex-wrap gap-2 items-center">
-            <!-- Recherche améliorée -->
+        <div class="flex flex-wrap gap-3 items-center">
+            <!-- Recherche améliorée avec style premium -->
             <div class="relative flex-grow max-w-md">
-                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                <input type="text" id="search-input" placeholder="Recherche multi-mots..." class="input input-sm input-bordered w-full pl-10" />
-                <div class="tooltip tooltip-bottom absolute right-2 top-1/2 transform -translate-y-1/2" data-tip="Recherche intelligente: tapez plusieurs mots séparés par des espaces">
-                    <i data-lucide="help-circle" class="w-4 h-4 text-gray-400"></i>
-                </div>
+                <input type="text" id="search-input" placeholder="Rechercher..." class="input input-bordered w-full pr-10 bg-off-white border-0 shadow-soft focus:shadow-premium transition-all duration-300">
+                <button id="clear-search" class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs opacity-70 hover:opacity-100" style="display: none;">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
             </div>
             
             <!-- Bouton Activer modification -->
-            <button class="btn btn-sm btn-outline" id="edit-mode-btn">
+            <button class="btn btn-sm btn-outline shadow-soft" id="edit-mode-btn">
                 <i data-lucide="edit-3" class="w-4 h-4 mr-1"></i> Activer modification
             </button>
             
             <!-- Boutons d'action -->
-            <div class="flex space-x-2">
-                <button class="btn btn-sm btn-outline" id="import-btn">
+            <div class="flex space-x-3">
+                <button class="btn btn-sm btn-outline shadow-soft" id="import-btn">
                     <i data-lucide="upload" class="w-4 h-4 mr-1"></i> Import Excel
                 </button>
-                <button class="btn btn-sm btn-outline" id="export-btn">
+                <button class="btn btn-sm btn-outline shadow-soft" id="export-btn">
                     <i data-lucide="download" class="w-4 h-4 mr-1"></i> Export Excel
                 </button>
                 <button id="save-fleet-button" class="btn btn-sm btn-outline btn-success">
                     <i data-lucide="save" class="w-4 h-4 mr-1"></i> Sauvegarder
                 </button>
-                <button id="delete-selected-button" class="btn btn-sm btn-outline btn-error" disabled>
+                <button id="delete-selected-button" class="btn btn-sm btn-outline btn-error shadow-soft" disabled>
                     <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i> Supprimer
                 </button>
             </div>
             
-            <!-- Bouton NOUVEAU -->
-            <button class="btn btn-sm btn-primary" id="add-btn">
+            <!-- Bouton NOUVEAU avec style premium -->
+            <button class="btn btn-sm btn-primary shadow-premium" id="add-btn">
                 <i data-lucide="plus" class="w-4 h-4 mr-1"></i> NOUVEAU
             </button>
             
