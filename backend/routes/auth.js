@@ -214,9 +214,9 @@ router.get('/ensure-admin', async (req, res) => {
       return res.json({ message: 'L\'utilisateur admin@test.com existe déjà et a les droits admin', adminUser });
     }
     
-    // Créer l'utilisateur admin@test.com s'il n'existe pas
+    // Créer l'utilisateur admin@test.com s'il n'existe pas avec un mot de passe sécurisé
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('admin', salt);
+    const hashedPassword = await bcrypt.hash('!Mf9sK@47vLz#XeYp1Qd', salt);
     
     adminUser = new Client({
       name: 'Admin',
