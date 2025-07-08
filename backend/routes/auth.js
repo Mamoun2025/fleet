@@ -241,6 +241,11 @@ router.post('/create-admin', async (req, res) => {
     // Extraire les données du corps de la requête
     const { name, email, password } = req.body;
     
+    // Seul admin@test.com peut être super admin
+    if (email !== 'admin@test.com') {
+      return res.status(403).json({ message: 'Seul admin@test.com peut avoir des droits d\'administrateur' });
+    }
+    
     // Si l'email est admin@test.com, on autorise sa création même s'il existe déjà un admin
     if (email !== 'admin@test.com') {
       // Pour les autres emails, vérifier s'il existe déjà un administrateur
