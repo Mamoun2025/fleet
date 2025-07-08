@@ -102,6 +102,13 @@
                 </button>
             </div>
             
+            <!-- Bouton Sauvegarder -->
+            <div class="tooltip tooltip-bottom" data-tip="Sauvegarder les modifications">
+                <button id="save-fleet-button" class="btn btn-ghost btn-xs">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
             <!-- Indicateur de mode démo -->
             <div id="demo-mode-indicator" class="hidden">
                 <span class="badge badge-warning badge-sm">Mode Démo</span>
@@ -147,9 +154,7 @@
                 <button class="btn btn-sm btn-outline shadow-soft" id="export-btn">
                     <i data-lucide="download" class="w-4 h-4 mr-1"></i> Export Excel
                 </button>
-                <button id="save-fleet-button" class="btn btn-sm btn-outline btn-success">
-                    <i data-lucide="save" class="w-4 h-4 mr-1"></i> Sauvegarder
-                </button>
+                <!-- Bouton Sauvegarder déplacé en haut à côté du bouton Sync -->
                 <button id="delete-selected-button" class="btn btn-sm btn-outline btn-error shadow-soft" disabled>
                     <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i> Supprimer
                 </button>
@@ -573,6 +578,17 @@
             // Rediriger vers la page de connexion
             window.location.href = 'login.html';
         }
+    </script>
+    
+    <!-- Scripts principaux de l'application -->
+    <script src="fleet-core.js"></script>
+    <script src="fleet-operations.js"></script>
+    
+    <script>
+        // Initialiser les icônes Lucide après le chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
     </script>
 </body>
 </html>
