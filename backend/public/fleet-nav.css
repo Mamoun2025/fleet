@@ -1,0 +1,291 @@
+/* Fleet Navigation - Styles pour drawer et FAB */
+
+/* Drawer - Menu latéral pliable */
+.fleet-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 240px;
+  background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+  transform: translateX(-240px);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.fleet-drawer.open {
+  transform: translateX(0);
+}
+
+.fleet-drawer-header {
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.fleet-drawer-logo {
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--night-blue, #003366);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fleet-drawer-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  transition: color 0.2s ease;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.fleet-drawer-close:hover {
+  color: #334155;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.fleet-drawer-content {
+  padding: 1rem 0;
+  flex: 1;
+}
+
+.fleet-drawer-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fleet-drawer-item {
+  margin: 0.25rem 0;
+}
+
+.fleet-drawer-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  color: #64748b;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.fleet-drawer-link:hover {
+  background-color: rgba(70, 130, 180, 0.05);
+  color: #334155;
+}
+
+.fleet-drawer-link.active {
+  color: var(--steel-blue, #4682B4);
+  background-color: rgba(70, 130, 180, 0.08);
+  border-left: 3px solid var(--steel-blue, #4682B4);
+}
+
+.fleet-drawer-icon {
+  margin-right: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.fleet-drawer-text {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.fleet-drawer-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.fleet-drawer-toggle {
+  position: fixed;
+  left: 1rem;
+  top: 0.5rem;
+  z-index: 1001;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.fleet-drawer-toggle:hover {
+  color: #334155;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* FAB - Barre flottante contextuelle */
+.fleet-fab-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 990;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.fleet-fab-main {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4682B4, #003366);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 992;
+}
+
+.fleet-fab-main:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.fleet-fab-main i {
+  width: 1.5rem;
+  height: 1.5rem;
+  transition: transform 0.3s ease;
+}
+
+.fleet-fab-main.open i {
+  transform: rotate(45deg);
+}
+
+.fleet-fab-menu {
+  position: absolute;
+  bottom: 4.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 991;
+}
+
+.fleet-fab-menu.open {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+}
+
+.fleet-fab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.25s ease;
+}
+
+.fleet-fab-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: white;
+  color: #4682B4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.25s ease;
+  border: none;
+}
+
+.fleet-fab-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.fleet-fab-label {
+  background-color: #334155;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all 0.25s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.fleet-fab-item:hover .fleet-fab-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Overlay pour fermer le drawer en cliquant à l'extérieur */
+.fleet-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.fleet-drawer-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Ajustement du contenu principal quand le drawer est ouvert */
+.main-content {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content.drawer-open {
+  margin-left: 240px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fleet-drawer {
+    width: 280px;
+    transform: translateX(-280px);
+  }
+  
+  .main-content.drawer-open {
+    margin-left: 0;
+  }
+  
+  .fleet-fab-container {
+    bottom: 1.5rem;
+    right: 1.5rem;
+  }
+}
+
+/* Variables CSS pour la cohérence des couleurs */
+:root {
+  --steel-blue: #4682B4;
+  --night-blue: #003366;
+  --off-white: #F5F7FA;
+  --deep-gray: #2C3E50;
+}
