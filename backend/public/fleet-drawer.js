@@ -7,6 +7,15 @@ class FleetDrawer {
   constructor() {
     this.isOpen = false;
     this.currentModule = 'fleet'; // Module par défaut
+    this.sectionTitles = {
+      'fleet': 'Ma Flotte',
+      'planning': 'Planning',
+      'map': 'Carte',
+      'history': 'Historique',
+      'stats': 'Statistiques',
+      'maintenance': 'Entretien',
+      'settings': 'Paramètres'
+    };
     
     this.init();
   }
@@ -116,9 +125,11 @@ class FleetDrawer {
   }
   
   initEvents() {
-    // Ouverture du drawer
-    const toggleBtn = document.getElementById('fleet-drawer-toggle');
-    toggleBtn.addEventListener('click', () => this.toggleDrawer());
+    // Ouverture du drawer avec le nouveau bouton dans la navbar
+    const toggleBtn = document.getElementById('drawer-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => this.toggleDrawer());
+    }
     
     // Fermeture du drawer
     const closeBtn = document.getElementById('fleet-drawer-close');
@@ -220,6 +231,19 @@ class FleetDrawer {
     
     this.currentModule = moduleId;
     
+    // Mettre à jour le titre de la section dans la navbar
+    const sectionTitle = document.getElementById('section-title');
+    if (sectionTitle && this.sectionTitles[moduleId]) {
+      sectionTitle.textContent = this.sectionTitles[moduleId];
+      
+      // Animation de transition pour le titre
+      sectionTitle.style.opacity = '0';
+      setTimeout(() => {
+        sectionTitle.textContent = this.sectionTitles[moduleId];
+        sectionTitle.style.opacity = '1';
+      }, 200);
+    }
+    
     // Déclencher un événement personnalisé pour informer l'application du changement de module
     const event = new CustomEvent('moduleChanged', {
       detail: { moduleId }
@@ -255,11 +279,17 @@ class FleetDrawer {
 // Initialisation du drawer quand le DOM est chargé
 document.addEventListener('DOMContentLoaded', () => {
   // Ajouter la classe main-content au contenu principal
-  const mainContent = document.querySelector('body > :not(.fleet-drawer, .fleet-drawer-toggle, .fleet-drawer-overlay, .fleet-fab-container)');
+  const mainContent = document.querySelector('body > :not(.fleet-drawer, .fleet-drawer-overlay)');
   if (mainContent) {
     mainContent.classList.add('main-content');
   }
   
   // Initialiser le drawer
   window.fleetDrawer = new FleetDrawer();
+  
+  // Ajouter une transition au titre de la section
+  const sectionTitle = document.getElementById('section-title');
+  if (sectionTitle) {
+    sectionTitle.style.transition = 'opacity 0.3s ease';
+  }
 });

@@ -88,9 +88,10 @@
     <!-- Navbar avec informations utilisateur et synchronisation -->
     <div class="navbar bg-base-100 shadow-soft">
         <div class="flex-1">
-            <span class="font-semibold text-lg tracking-tight text-night-blue">Fleet</span>
-            <span class="mx-2 text-gray-400">/</span>
-            <span id="fleet-title" class="font-medium text-steel-blue">Chargement...</span>
+            <button id="drawer-toggle-btn" class="btn btn-ghost btn-sm rounded-full mr-2 hover:bg-gray-100">
+                <i data-lucide="menu" class="w-5 h-5 text-night-blue"></i>
+            </button>
+            <span id="section-title" class="font-medium text-steel-blue text-lg">Ma Flotte</span>
         </div>
         <div class="flex items-center space-x-2">
             <!-- Indicateur de synchronisation -->
@@ -303,7 +304,6 @@
     <script src="fleet-core.js"></script>
     <script src="fleet-operations.js"></script>
     <script src="fleet-drawer.js"></script>
-    <script src="fleet-fab.js"></script>
     
     <!-- Scripts IA Deadalia -->
     <link rel="stylesheet" href="ia/css/chat.css">
