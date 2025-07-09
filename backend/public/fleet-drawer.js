@@ -63,12 +63,12 @@ class FleetDrawer {
     // Définition des items du menu
     const menuItems = [
       { id: 'fleet', icon: 'truck', text: 'Flotte', href: 'fleet.html' },
-      { id: 'planning', icon: 'calendar', text: 'Planning', href: '#planning' },
-      { id: 'map', icon: 'map', text: 'Carte', href: '#map' },
-      { id: 'history', icon: 'history', text: 'Historique', href: '#history' },
-      { id: 'stats', icon: 'bar-chart-2', text: 'Statistiques', href: '#stats' },
-      { id: 'maintenance', icon: 'tool', text: 'Entretien', href: '#maintenance' },
-      { id: 'settings', icon: 'settings', text: 'Paramètres', href: '#settings' },
+      { id: 'planning', icon: 'calendar', text: 'Planning', href: 'planning.html' },
+      { id: 'map', icon: 'map', text: 'Carte', href: 'map.html' },
+      { id: 'history', icon: 'history', text: 'Historique', href: 'history.html' },
+      { id: 'stats', icon: 'bar-chart-2', text: 'Statistiques', href: 'stats.html' },
+      { id: 'maintenance', icon: 'tool', text: 'Entretien', href: 'maintenance.html' },
+      { id: 'settings', icon: 'settings', text: 'Paramètres', href: 'settings.html' },
     ];
     
     menuItems.forEach(item => {
