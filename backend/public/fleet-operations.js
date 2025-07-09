@@ -262,13 +262,285 @@ function closeImportModal() {
     }
 }
 
-// Fonction processExcelFile conservée à la ligne 610
+// Traiter le fichier Excel sélectionné
+function processExcelFile(file) {
+    console.log('=== DEBUT processExcelFile ===');
+    console.log('Fichier sélectionné:', file.name, file.size, 'bytes');
+    
+    if (!file) {
+        console.error('Aucun fichier fourni');
+        return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        console.log('Fichier lu, taille des données:', e.target.result.byteLength);
+        
+        try {
+            // Lire le fichier Excel avec SheetJS
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            console.log('Workbook lu, feuilles disponibles:', workbook.SheetNames);
+            
+            // Prendre la première feuille
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convertir en JSON avec les en-têtes
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            console.log('Données JSON extraites:', jsonData.length, 'lignes');
+            
+            if (jsonData.length === 0) {
+                alert('Le fichier Excel semble vide.');
+                return;
+            }
+            
+            // Première ligne = en-têtes
+            const headers = jsonData[0];
+            const rows = jsonData.slice(1);
+            
+            console.log('En-têtes:', headers);
+            console.log('Nombre de lignes de données:', rows.length);
+            
+            // Mapper les données
+            const mappedData = mapExcelData(headers, rows);
+            console.log('Données mappées:', mappedData.length, 'enregistrements');
+            
+            if (mappedData.length === 0) {
+                alert('Aucune donnée valide trouvée dans le fichier Excel.');
+                return;
+            }
+            
+            // Vérifier les doublons
+            const duplicateInfo = checkDuplicates(mappedData);
+            console.log('Informations sur les doublons:', duplicateInfo);
+            
+            // Stocker les données pour l'aperçu et l'import
+            excelData = duplicateInfo.filteredData;
+            
+            // Mettre à jour l'interface
+            const importPreview = document.getElementById('import-preview');
+            if (importPreview) {
+                importPreview.classList.remove('hidden');
+            }
+            
+            // Mettre à jour les compteurs
+            const previewCount = document.getElementById('preview-count');
+            if (previewCount) {
+                previewCount.textContent = `${excelData.length} enregistrement(s) à importer`;
+            }
+            
+            const duplicateCount = document.getElementById('duplicate-count');
+            if (duplicateCount && duplicateInfo.duplicates > 0) {
+                duplicateCount.textContent = `${duplicateInfo.duplicates} doublon(s) détecté(s)`;
+                duplicateCount.classList.remove('hidden');
+            }
+            
+            // Activer les boutons
+            const previewBtn = document.getElementById('preview-import-btn');
+            if (previewBtn) {
+                previewBtn.disabled = false;
+                console.log('Bouton aperçu activé');
+            }
+            
+            const confirmBtn = document.getElementById('confirm-import-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                console.log('Bouton import activé');
+            }
+            
+            console.log('=== FIN processExcelFile - Succès ===');
+            
+        } catch (error) {
+            console.error('Erreur lors du traitement du fichier Excel:', error);
+            alert('Erreur lors de la lecture du fichier Excel: ' + error.message);
+        }
+    };
+    
+    reader.onerror = function(error) {
+        console.error('Erreur de lecture du fichier:', error);
+        alert('Erreur lors de la lecture du fichier.');
+    };
+    
+    // Lire le fichier comme ArrayBuffer
+    reader.readAsArrayBuffer(file);
+}
 
-// Fonction mapExcelData conservée à la ligne 712
+// Mapper les données Excel vers la structure du tableau
+function mapExcelData(headers, rows) {
+    console.log('Mapping des données Excel:', { headers, rowCount: rows.length });
+    
+    // Mapping des en-têtes Excel vers les champs de notre tableau
+    const fieldMapping = {
+        'ID': 'id',
+        'N° de parc': 'fleetnumber',
+        'Désignation': 'designation',
+        'Parc Engins': 'fleet',
+        'Marque': 'brand',
+        'Modèle': 'model',
+        'N° de série': 'serialnumber',
+        'Affectation': 'affectation',
+        'Heures d\'utilisation': 'hours'
+    };
+    
+    const mappedData = [];
+    
+    rows.forEach((row, rowIndex) => {
+        // Ignorer les lignes vides
+        if (!row || row.every(cell => !cell && cell !== 0)) {
+            return;
+        }
+        
+        const mappedRow = {};
+        let hasValidData = false;
+        
+        headers.forEach((header, colIndex) => {
+            const fieldName = fieldMapping[header];
+            if (fieldName && row[colIndex] !== undefined && row[colIndex] !== null && row[colIndex] !== '') {
+                let value = row[colIndex];
+                
+                // Traitement spécial pour certains champs
+                if (fieldName === 'id') {
+                    value = parseInt(value, 10);
+                    if (isNaN(value)) {
+                        console.warn(`Ligne ${rowIndex + 2}: ID invalide (${row[colIndex]})`);
+                        return; // Ignorer cette ligne si l'ID n'est pas valide
+                    }
+                } else if (fieldName === 'hours') {
+                    value = parseFloat(value);
+                    if (isNaN(value)) {
+                        value = 0; // Valeur par défaut pour les heures
+                    }
+                } else {
+                    value = String(value).trim();
+                }
+                
+                mappedRow[fieldName] = value;
+                hasValidData = true;
+            }
+        });
+        
+        // Ajouter seulement si on a des données valides et un ID
+        if (hasValidData && mappedRow.id) {
+            mappedData.push(mappedRow);
+        } else if (hasValidData) {
+            console.warn(`Ligne ${rowIndex + 2}: Ignorée car pas d'ID valide`);
+        }
+    });
+    
+    console.log(`${mappedData.length} enregistrements mappés avec succès`);
+    return mappedData;
+}
 
-// Fonction checkDuplicates conservée à la ligne 597
+// Vérifier les doublons dans les données Excel
+function checkDuplicates(excelData) {
+    console.log('Vérification des doublons pour', excelData.length, 'enregistrements');
+    
+    const existingIds = new Set(tableData.map(item => item.id));
+    const filteredData = [];
+    const updatedData = [];
+    let duplicates = 0;
+    
+    excelData.forEach(item => {
+        if (existingIds.has(item.id)) {
+            // C'est un doublon - sera mis à jour
+            duplicates++;
+            updatedData.push(item);
+        } else {
+            // Nouvel enregistrement
+            filteredData.push(item);
+        }
+    });
+    
+    console.log(`Doublons détectés: ${duplicates}, Nouveaux: ${filteredData.length}`);
+    
+    return {
+        filteredData: filteredData,
+        duplicates: duplicates,
+        updatedData: updatedData
+    };
+}
 
-// Fonction previewExcelData conservée à la ligne 663
+// Afficher un aperçu des données Excel
+function previewExcelData() {
+    console.log('=== DEBUT previewExcelData ===');
+    console.log('excelData:', excelData);
+    console.log('excelData.length:', excelData ? excelData.length : 'undefined');
+    
+    if (!excelData || excelData.length === 0) {
+        alert('Aucune donnée à prévisualiser. Veuillez d\'abord sélectionner un fichier Excel.');
+        return;
+    }
+    
+    // Créer une fenêtre d'aperçu
+    const previewWindow = window.open('', 'Preview', 'width=800,height=600,scrollbars=yes,resizable=yes');
+    
+    if (!previewWindow) {
+        alert('Impossible d\'ouvrir la fenêtre d\'aperçu. Vérifiez que les pop-ups ne sont pas bloqués.');
+        return;
+    }
+    
+    previewWindow.document.write('<html><head><title>Aperçu des données Excel</title>');
+    previewWindow.document.write('<style>');
+    previewWindow.document.write('body { font-family: Arial, sans-serif; margin: 20px; }');
+    previewWindow.document.write('h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }');
+    previewWindow.document.write('table { border-collapse: collapse; width: 100%; margin-top: 20px; }');
+    previewWindow.document.write('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }');
+    previewWindow.document.write('th { background-color: #f2f2f2; font-weight: bold; }');
+    previewWindow.document.write('tr:nth-child(even) { background-color: #f9f9f9; }');
+    previewWindow.document.write('tr:hover { background-color: #f5f5f5; }');
+    previewWindow.document.write('.info { background-color: #e7f3ff; padding: 10px; border-radius: 5px; margin-bottom: 20px; }');
+    previewWindow.document.write('</style>');
+    previewWindow.document.write('</head><body>');
+    
+    previewWindow.document.write(`<h1>Aperçu des données Excel</h1>`);
+    previewWindow.document.write(`<div class="info">`);
+    previewWindow.document.write(`<strong>Nombre total d'enregistrements :</strong> ${excelData.length}<br>`);
+    previewWindow.document.write(`<strong>Aperçu :</strong> Affichage des ${Math.min(10, excelData.length)} premiers enregistrements`);
+    previewWindow.document.write(`</div>`);
+    
+    // Créer le tableau
+    previewWindow.document.write('<table>');
+    
+    // En-têtes
+    previewWindow.document.write('<tr>');
+    const headers = ['ID', 'N° de parc', 'Désignation', 'Parc Engins', 'Marque', 'Modèle', 'N° de série', 'Affectation', 'Heures'];
+    headers.forEach(header => {
+        previewWindow.document.write(`<th>${header}</th>`);
+    });
+    previewWindow.document.write('</tr>');
+    
+    // Données (limiter à 10 pour l'aperçu)
+    const previewData = excelData.slice(0, 10);
+    previewData.forEach(item => {
+        previewWindow.document.write('<tr>');
+        previewWindow.document.write(`<td>${item.id || ''}</td>`);
+        previewWindow.document.write(`<td>${item.fleetnumber || ''}</td>`);
+        previewWindow.document.write(`<td>${item.designation || ''}</td>`);
+        previewWindow.document.write(`<td>${item.fleet || ''}</td>`);
+        previewWindow.document.write(`<td>${item.brand || ''}</td>`);
+        previewWindow.document.write(`<td>${item.model || ''}</td>`);
+        previewWindow.document.write(`<td>${item.serialnumber || ''}</td>`);
+        previewWindow.document.write(`<td>${item.affectation || ''}</td>`);
+        previewWindow.document.write(`<td>${item.hours || 0}</td>`);
+        previewWindow.document.write('</tr>');
+    });
+    
+    previewWindow.document.write('</table>');
+    
+    if (excelData.length > 10) {
+        previewWindow.document.write(`<p style="margin-top: 20px; font-style: italic; color: #666;">`);
+        previewWindow.document.write(`... et ${excelData.length - 10} autres enregistrements non affichés dans cet aperçu.`);
+        previewWindow.document.write(`</p>`);
+    }
+    
+    previewWindow.document.write('</body></html>');
+    previewWindow.document.close();
+    
+    console.log('Fenêtre d\'aperçu ouverte avec', excelData.length, 'enregistrements');
+}
 
 // Importer les données Excel dans le tableau
 function importData() {
@@ -520,8 +792,68 @@ function checkDuplicates(newData) {
     return { filteredData, count: duplicates.length, updatedData };
 }
 
-// Note: La fonction importData est déjà définie aux lignes 273-336
-// Cette version dupliquée a été supprimée pour éviter les conflits
+// Importer les données dans le tableau
+function importData() {
+    if (excelData.length === 0) {
+        alert('Aucune donnée à importer.');
+        return;
+    }
+    
+    try {
+        // Fusionner avec les données existantes
+        const existingIds = tableData.map(item => item.id);
+        let newCount = 0;
+        let updateCount = 0;
+        
+        excelData.forEach(newItem => {
+            const existingIndex = tableData.findIndex(item => item.id === newItem.id);
+            
+            if (existingIndex !== -1) {
+                // Mettre à jour l'enregistrement existant
+                tableData[existingIndex] = { ...tableData[existingIndex], ...newItem };
+                updateCount++;
+            } else {
+                // Ajouter un nouvel enregistrement
+                tableData.push(newItem);
+                newCount++;
+            }
+        });
+        
+        // Mettre à jour le tableau
+        table.setData(tableData);
+        
+        // Sauvegarder les données
+        if (saveFleetData()) {
+            // Afficher un message de succès
+            const successMessage = document.createElement('div');
+            successMessage.className = 'alert alert-success fixed bottom-4 right-4 w-auto shadow-lg z-50';
+            successMessage.innerHTML = `
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Import réussi: ${newCount} nouveau(x), ${updateCount} mis à jour</span>
+                </div>
+            `;
+            document.body.appendChild(successMessage);
+            
+            // Supprimer le message après 3 secondes
+            setTimeout(() => {
+                if (successMessage.parentNode) {
+                    successMessage.parentNode.removeChild(successMessage);
+                }
+            }, 3000);
+            
+            // Fermer le modal
+            closeImportModal();
+            
+            console.log(`Import terminé: ${newCount} nouveaux enregistrements, ${updateCount} mis à jour`);
+        }
+    } catch (error) {
+        console.error('Erreur lors de l\'import des données:', error);
+        alert('Erreur lors de l\'import des données.');
+    }
+}
 
 // Afficher un aperçu des données à importer
 function previewExcelData() {
@@ -728,44 +1060,16 @@ function addNewVehicle() {
     table.scrollToRow(table.getRows()[0]);
 }
 
-// Fonctions de recherche globale améliorée
+// Fonctions de recherche globale
 function matchAny(data, filterParams) {
-    // Récupérer le terme de recherche et le nettoyer
-    let searchTerm = filterParams.value.trim();
+    const searchValue = filterParams.value.toLowerCase();
     
-    // Si le terme de recherche est vide, on accepte toutes les lignes
-    if (!searchTerm) return true;
+    // Rechercher dans tous les champs texte
+    const searchableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation'];
     
-    // Séparer les mots de recherche (gestion des espaces multiples)
-    const searchTerms = searchTerm.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-    
-    // Si aucun terme valide après filtrage, accepter toutes les lignes
-    if (searchTerms.length === 0) return true;
-    
-    // Fonction pour normaliser le texte (supprimer les accents)
-    const normalizeText = (text) => {
-        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    };
-    
-    // Pour chaque terme de recherche, vérifier s'il est présent dans au moins une colonne
-    return searchTerms.every(term => {
-        const normalizedTerm = normalizeText(term);
-        
-        // Parcourir toutes les colonnes de la ligne
-        for (let key in data) {
-            // Ignorer les propriétés non pertinentes
-            if (key === "_row" || !data[key]) continue;
-            
-            // Convertir la valeur en chaîne, la mettre en minuscules et normaliser
-            let value = String(data[key]);
-            const normalizedValue = normalizeText(value.toLowerCase());
-            
-            if (normalizedValue.includes(normalizedTerm)) {
-                return true; // Ce terme a une correspondance
-            }
-        }
-        
-        return false; // Ce terme n'a pas de correspondance
+    return searchableFields.some(field => {
+        const value = data[field];
+        return value && value.toString().toLowerCase().includes(searchValue);
     });
 }
 
