@@ -2,11 +2,12 @@
 // Contient les fonctionnalités de base et la configuration du tableau
 
 // Variables globales
-let table; // Instance Tabulator
-let tableData = []; // Données du tableau
-let excelData = []; // Données Excel temporaires pour l'import
-let currentFleetId = null; // ID de la flotte actuelle
-let currentFleetName = null; // Nom de la flotte actuelle
+window.table = null; // Instance Tabulator
+window.tableData = []; // Données du tableau
+window.excelData = []; // Données Excel temporaires pour l'import
+window.currentFleetId = null; // ID de la flotte actuelle
+window.currentFleetName = null; // Nom de la flotte actuelle
+window.editModeActive = false; // État du mode d'édition
 
 // Structure des colonnes organisées par catégorie (basée sur fleet_fields.xlsx)
 const columnCategories = [
@@ -127,7 +128,7 @@ let duplicatesCount = 0;
 
 // Fonction pour s'assurer que les ID sont des nombres
 function ensureNumericIds() {
-    tableData.forEach(item => {
+    window.tableData.forEach(item => {
         if (item.id && typeof item.id === 'string') {
             const numericId = parseInt(item.id, 10);
             if (!isNaN(numericId)) {
@@ -147,8 +148,8 @@ function ensureNumericIds() {
 function loadFleetData() {
     try {
         // Récupérer l'ID de la flotte actuelle
-        currentFleetId = localStorage.getItem('currentFleetId') || 'demo';
-        currentFleetName = localStorage.getItem('currentFleetName') || 'Flotte de démonstration';
+        window.currentFleetId = localStorage.getItem('currentFleetId') || 'demo';
+        window.currentFleetName = localStorage.getItem('currentFleetName') || 'Flotte de démonstration';
         
         // Mettre à jour le titre de la page avec le nom de la flotte
         updateFleetTitle();
@@ -161,13 +162,13 @@ function loadFleetData() {
         
         const savedData = localStorage.getItem(storageKey);
         if (savedData) {
-            tableData = JSON.parse(savedData);
+            window.tableData = JSON.parse(savedData);
             // S'assurer que les ID sont des nombres pour le tri
             ensureNumericIds();
-            console.log(`Données chargées pour la flotte ${currentFleetId}:`, tableData.length, 'enregistrements');
+            console.log(`Données chargées pour la flotte ${window.currentFleetId}:`, window.tableData.length, 'enregistrements');
         } else {
-            console.log(`Aucune donnée trouvée pour la flotte ${currentFleetId}. Initialisation avec un tableau vide.`);
-            tableData = [];
+            console.log(`Aucune donnée trouvée pour la flotte ${window.currentFleetId}. Initialisation avec un tableau vide.`);
+            window.tableData = [];
         }
         
         // Si le module de synchronisation est disponible et que nous ne sommes pas en mode démo
@@ -179,7 +180,7 @@ function loadFleetData() {
         return true;
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
-        tableData = [];
+        window.tableData = [];
         return false;
     }
 }
@@ -189,11 +190,11 @@ function updateFleetTitle() {
     // Mettre à jour le titre dans la navbar
     const fleetTitle = document.getElementById('fleet-title');
     if (fleetTitle) {
-        fleetTitle.textContent = currentFleetName || 'Flotte';
+        fleetTitle.textContent = window.currentFleetName || 'Flotte';
     }
     
     // Mettre à jour le titre de l'onglet du navigateur
-    document.title = `${currentFleetName || 'Flotte'} - Fleet Management`;
+    document.title = `${window.currentFleetName || 'Flotte'} - Fleet Management`;
 }
 
 // Initialisation au chargement de la page
@@ -209,13 +210,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Vérifier si une flotte est sélectionnée
-    currentFleetId = localStorage.getItem('currentFleetId');
-    if (!currentFleetId) {
+    window.currentFleetId = localStorage.getItem('currentFleetId');
+    if (!window.currentFleetId) {
         // Créer une flotte temporaire
-        currentFleetId = 'temp-' + Date.now();
-        localStorage.setItem('currentFleetId', currentFleetId);
+        window.currentFleetId = 'temp-' + Date.now();
+        localStorage.setItem('currentFleetId', window.currentFleetId);
         localStorage.setItem('currentFleetName', 'Ma Flotte');
-        console.log('Flotte temporaire créée:', currentFleetId);
+        console.log('Flotte temporaire créée:', window.currentFleetId);
     }
     
     // Chargement des données depuis le stockage local
@@ -310,7 +311,7 @@ function initializeTable() {
     console.log('Initialisation du tableau');
     
     // Configuration du tableau
-    table = new Tabulator("#fleet-table", {
+    window.table = new Tabulator("#fleet-table", {
         data: tableData,
         columns: tableColumns,
         layout: "fitDataStretch",
@@ -532,11 +533,11 @@ window.highlightColumn = function(field) {
 function saveFleetData() {
     try {
         // Clé de stockage spécifique à la flotte
-        const storageKey = `fleetData_${currentFleetId}`;
+        const storageKey = `fleetData_${window.currentFleetId}`;
         
         // Sauvegarder dans le stockage local
-        localStorage.setItem(storageKey, JSON.stringify(tableData));
-        console.log(`Données sauvegardées pour la flotte ${currentFleetId}:`, tableData.length, 'enregistrements');
+        localStorage.setItem(storageKey, JSON.stringify(window.tableData));
+        console.log(`Données sauvegardées pour la flotte ${window.currentFleetId}:`, window.tableData.length, 'enregistrements');
         
         // Vérifier si nous sommes en mode démo
         const demoMode = localStorage.getItem('demoMode') === 'true';

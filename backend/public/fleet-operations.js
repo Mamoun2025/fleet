@@ -12,7 +12,7 @@ function initializeEvents() {
         
         function performSearch() {
             const searchValue = searchInput.value;
-            table.setFilter(matchAny, {value: searchValue});
+            window.table.setFilter(matchAny, {value: searchValue});
         }
         
         searchInput.addEventListener("input", function() {
@@ -143,7 +143,7 @@ function initializeEvents() {
     const exportBtn = document.getElementById("export-btn");
     if (exportBtn) {
         exportBtn.addEventListener("click", function() {
-            table.download("xlsx", "parc_machines.xlsx");
+            window.table.download("xlsx", "parc_machines.xlsx");
         });
     }
     
@@ -181,7 +181,7 @@ function initializeEvents() {
     
     // Ajustement de la hauteur du tableau lors du redimensionnement
     window.addEventListener("resize", function() {
-        table.redraw();
+        window.table.redraw();
     });
     
 
@@ -318,7 +318,7 @@ function processExcelFile(file) {
             console.log('Informations sur les doublons:', duplicateInfo);
             
             // Stocker les données pour l'aperçu et l'import
-            excelData = duplicateInfo.filteredData;
+            window.excelData = duplicateInfo.filteredData;
             
             // Mettre à jour l'interface
             const importPreview = document.getElementById('import-preview');
@@ -329,7 +329,7 @@ function processExcelFile(file) {
             // Mettre à jour les compteurs
             const previewCount = document.getElementById('preview-count');
             if (previewCount) {
-                previewCount.textContent = `${excelData.length} enregistrement(s) à importer`;
+                previewCount.textContent = `${window.excelData.length} enregistrement(s) à importer`;
             }
             
             const duplicateCount = document.getElementById('duplicate-count');
@@ -438,7 +438,7 @@ function mapExcelData(headers, rows) {
 function checkDuplicates(excelData) {
     console.log('Vérification des doublons pour', excelData.length, 'enregistrements');
     
-    const existingIds = new Set(tableData.map(item => item.id));
+    const existingIds = new Set(window.tableData.map(item => item.id));
     const filteredData = [];
     const updatedData = [];
     let duplicates = 0;
@@ -466,10 +466,10 @@ function checkDuplicates(excelData) {
 // Afficher un aperçu des données Excel
 function previewExcelData() {
     console.log('=== DEBUT previewExcelData ===');
-    console.log('excelData:', excelData);
-    console.log('excelData.length:', excelData ? excelData.length : 'undefined');
+    console.log('excelData:', window.excelData);
+    console.log('excelData.length:', window.excelData ? window.excelData.length : 'undefined');
     
-    if (!excelData || excelData.length === 0) {
+    if (!window.excelData || window.excelData.length === 0) {
         alert('Aucune donnée à prévisualiser. Veuillez d\'abord sélectionner un fichier Excel.');
         return;
     }
@@ -497,8 +497,8 @@ function previewExcelData() {
     
     previewWindow.document.write(`<h1>Aperçu des données Excel</h1>`);
     previewWindow.document.write(`<div class="info">`);
-    previewWindow.document.write(`<strong>Nombre total d'enregistrements :</strong> ${excelData.length}<br>`);
-    previewWindow.document.write(`<strong>Aperçu :</strong> Affichage des ${Math.min(10, excelData.length)} premiers enregistrements`);
+    previewWindow.document.write(`<strong>Nombre total d'enregistrements :</strong> ${window.excelData.length}<br>`);
+    previewWindow.document.write(`<strong>Aperçu :</strong> Affichage des ${Math.min(10, window.excelData.length)} premiers enregistrements`);
     previewWindow.document.write(`</div>`);
     
     // Créer le tableau
@@ -513,7 +513,7 @@ function previewExcelData() {
     previewWindow.document.write('</tr>');
     
     // Données (limiter à 10 pour l'aperçu)
-    const previewData = excelData.slice(0, 10);
+    const previewData = window.excelData.slice(0, 10);
     previewData.forEach(item => {
         previewWindow.document.write('<tr>');
         previewWindow.document.write(`<td>${item.id || ''}</td>`);
@@ -530,23 +530,23 @@ function previewExcelData() {
     
     previewWindow.document.write('</table>');
     
-    if (excelData.length > 10) {
+    if (window.excelData.length > 10) {
         previewWindow.document.write(`<p style="margin-top: 20px; font-style: italic; color: #666;">`);
-        previewWindow.document.write(`... et ${excelData.length - 10} autres enregistrements non affichés dans cet aperçu.`);
+        previewWindow.document.write(`... et ${window.excelData.length - 10} autres enregistrements non affichés dans cet aperçu.`);
         previewWindow.document.write(`</p>`);
     }
     
     previewWindow.document.write('</body></html>');
     previewWindow.document.close();
     
-    console.log('Fenêtre d\'aperçu ouverte avec', excelData.length, 'enregistrements');
+    console.log('Fenêtre d\'aperçu ouverte avec', window.excelData.length, 'enregistrements');
 }
 
 // Importer les données Excel dans le tableau
 function importData() {
     console.log('Import des données Excel dans le tableau');
     
-    if (!excelData || excelData.length === 0) {
+    if (!window.excelData || window.excelData.length === 0) {
         alert('Aucune donnée à importer. Veuillez d\'abord sélectionner un fichier Excel.');
         return;
     }
@@ -559,33 +559,33 @@ function importData() {
         if (updateExisting) {
             // Mode mise à jour : remplacer les doublons et ajouter les nouveaux
             const existingIds = new Map();
-            tableData.forEach((item, index) => {
+            window.tableData.forEach((item, index) => {
                 existingIds.set(item.id, index);
             });
             
-            excelData.forEach(newItem => {
+            window.excelData.forEach(newItem => {
                 if (existingIds.has(newItem.id)) {
                     // Mettre à jour l'enregistrement existant
                     const existingIndex = existingIds.get(newItem.id);
-                    tableData[existingIndex] = { ...tableData[existingIndex], ...newItem };
+                    window.tableData[existingIndex] = { ...window.tableData[existingIndex], ...newItem };
                     updatedCount++;
                 } else {
                     // Ajouter un nouvel enregistrement
-                    tableData.push(newItem);
+                    window.tableData.push(newItem);
                     addedCount++;
                 }
             });
         } else {
             // Mode ajout simple : ajouter toutes les données
-            tableData.push(...excelData);
-            addedCount = excelData.length;
+            window.tableData.push(...window.excelData);
+            addedCount = window.excelData.length;
         }
         
         // Sauvegarder les données
         saveFleetData();
         
         // Recharger le tableau
-        table.setData(tableData);
+        window.table.setData(window.tableData);
         
         // Fermer le modal
         closeImportModal();
@@ -743,14 +743,14 @@ function mapExcelData(headers, rows) {
             }
             
             // N'ajouter que si l'ID est valide et qu'il y a au moins un champ à mettre à jour
-            if (hasData || !tableData.some(existing => existing.id === item.id)) {
+            if (hasData || !window.tableData.some(existing => existing.id === item.id)) {
                 mappedData.push(item);
             } else {
                 console.log('Ligne ignorée car aucun champ à mettre à jour:', item.id);
             }
         } else {
             // Générer un ID automatique si manquant
-            const maxId = Math.max(0, ...tableData.map(item => item.id || 0));
+            const maxId = Math.max(0, ...window.tableData.map(item => item.id || 0));
             item.id = maxId + index + 1;
             if (hasData) {
                 mappedData.push(item);
@@ -772,11 +772,11 @@ function checkDuplicates(newData) {
     newData.forEach(item => {
         if (item.id && existingIds.includes(item.id)) {
             // Trouver l'index de l'enregistrement existant
-            const existingIndex = tableData.findIndex(existing => existing.id === item.id);
+            const existingIndex = window.tableData.findIndex(existing => existing.id === item.id);
             if (existingIndex !== -1) {
                 // Sauvegarder l'enregistrement pour la mise à jour
                 duplicates.push({
-                    oldData: tableData[existingIndex],
+                    oldData: window.tableData[existingIndex],
                     newData: item
                 });
                 updatedData.push(item);
@@ -801,26 +801,26 @@ function importData() {
     
     try {
         // Fusionner avec les données existantes
-        const existingIds = tableData.map(item => item.id);
+        const existingIds = window.tableData.map(item => item.id);
         let newCount = 0;
         let updateCount = 0;
         
         excelData.forEach(newItem => {
-            const existingIndex = tableData.findIndex(item => item.id === newItem.id);
+            const existingIndex = window.tableData.findIndex(item => item.id === newItem.id);
             
             if (existingIndex !== -1) {
                 // Mettre à jour l'enregistrement existant
-                tableData[existingIndex] = { ...tableData[existingIndex], ...newItem };
+                window.tableData[existingIndex] = { ...window.tableData[existingIndex], ...newItem };
                 updateCount++;
             } else {
                 // Ajouter un nouvel enregistrement
-                tableData.push(newItem);
+                window.tableData.push(newItem);
                 newCount++;
             }
         });
         
         // Mettre à jour le tableau
-        table.setData(tableData);
+        window.table.setData(window.tableData);
         
         // Sauvegarder les données
         if (saveFleetData()) {
@@ -915,7 +915,7 @@ function deleteSelectedRows() {
     
     try {
         // Récupérer les lignes sélectionnées
-        const selectedRows = table.getSelectedRows();
+        const selectedRows = window.table.getSelectedRows();
         console.log('Lignes sélectionnées:', selectedRows.length);
         
         if (selectedRows.length === 0) {
@@ -939,8 +939,8 @@ function deleteSelectedRows() {
             selectedRows.forEach(row => row.delete());
             
             // Mettre à jour tableData en filtrant les éléments supprimés
-            tableData = tableData.filter(item => !selectedIds.includes(item.id));
-            console.log('Données mises à jour, reste:', tableData.length, 'enregistrements');
+            window.tableData = window.tableData.filter(item => !selectedIds.includes(item.id));
+            console.log('Données mises à jour, reste:', window.tableData.length, 'enregistrements');
             
             // Sauvegarder les modifications
             if (saveFleetData()) {
@@ -1020,7 +1020,7 @@ function addNewVehicle() {
     const idToUse = isNaN(numericId) ? newId : numericId;
     
     // Vérifier si l'ID existe déjà
-    const existingRow = tableData.find(row => {
+    const existingRow = window.tableData.find(row => {
         const rowId = typeof row.id === 'number' ? row.id : parseInt(row.id);
         const compareId = typeof idToUse === 'number' ? idToUse : parseInt(idToUse);
         
@@ -1045,10 +1045,10 @@ function addNewVehicle() {
     };
     
     // Ajouter la nouvelle ligne au début du tableau
-    tableData.unshift(newRow);
+    window.tableData.unshift(newRow);
     
     // Mettre à jour le tableau
-    table.setData(tableData);
+    window.table.setData(window.tableData);
     
     // Sauvegarder les données
     saveFleetData();
@@ -1057,7 +1057,7 @@ function addNewVehicle() {
     alert(`Nouveau véhicule avec ID ${newId} ajouté avec succès.`);
     
     // Faire défiler vers le haut du tableau pour voir la nouvelle ligne
-    table.scrollToRow(table.getRows()[0]);
+    window.table.scrollToRow(window.table.getRows()[0]);
 }
 
 // Fonctions de recherche globale
@@ -1080,9 +1080,9 @@ let editModeActive = false;
 function toggleEditMode() {
     const editModeBtn = document.getElementById("edit-mode-btn");
     
-    if (editModeActive) {
+    if (window.editModeActive) {
         // Désactiver le mode d'édition
-        editModeActive = false;
+        window.editModeActive = false;
         document.body.classList.remove('edit-mode-active');
         editModeBtn.classList.remove("btn-success");
         editModeBtn.classList.add("btn-outline");
@@ -1092,7 +1092,7 @@ function toggleEditMode() {
         console.log('Mode édition DÉSACTIVÉ');
     } else {
         // Activer le mode d'édition
-        editModeActive = true;
+        window.editModeActive = true;
         document.body.classList.add('edit-mode-active');
         editModeBtn.classList.remove("btn-outline");
         editModeBtn.classList.add("btn-success");
@@ -1106,19 +1106,19 @@ function toggleEditMode() {
     lucide.createIcons();
     
     // Rafraîchir le tableau pour appliquer les changements visuels
-    if (table) {
-        table.redraw(true);
+    if (window.table) {
+        window.table.redraw(true);
     }
 }
 
 // Activer l'édition sur les colonnes
 function activateEditableColumns() {
-    if (!table) return;
+    if (!window.table) return;
     
     const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours', 'mileage'];
     
     editableFields.forEach(field => {
-        const column = table.getColumn(field);
+        const column = window.table.getColumn(field);
         if (column) {
             // Déterminer le type d'éditeur selon le champ
             let editor = "input";
@@ -1139,7 +1139,7 @@ function activateEditableColumns() {
     });
     
     // S'assurer que la colonne ID n'est jamais éditable
-    const idColumn = table.getColumn('id');
+    const idColumn = window.table.getColumn('id');
     if (idColumn) {
         idColumn.updateDefinition({
             editor: false
@@ -1149,12 +1149,12 @@ function activateEditableColumns() {
 
 // Désactiver l'édition sur les colonnes
 function deactivateEditableColumns() {
-    if (!table) return;
+    if (!window.table) return;
     
     const editableFields = ['fleetnumber', 'designation', 'fleet', 'brand', 'model', 'serialnumber', 'affectation', 'hours', 'mileage'];
     
     editableFields.forEach(field => {
-        const column = table.getColumn(field);
+        const column = window.table.getColumn(field);
         if (column) {
             // Supprimer l'éditeur
             column.updateDefinition({
@@ -1202,9 +1202,9 @@ function onCellEdited(cell) {
     const newValue = cell.getValue();
     
     // Mettre à jour les données dans tableData
-    const dataIndex = tableData.findIndex(item => item.id === rowData.id);
+    const dataIndex = window.tableData.findIndex(item => item.id === rowData.id);
     if (dataIndex !== -1) {
-        tableData[dataIndex][fieldName] = newValue;
+        window.tableData[dataIndex][fieldName] = newValue;
         
         // Sauvegarder dans le localStorage
         saveFleetData();
